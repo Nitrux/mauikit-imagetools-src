@@ -244,21 +244,20 @@ Maui.Page
     // split: width < 600
 
     // footerMargins: Maui.Style.defaultPadding
-    headBar.farRightContent: Button
+    headBar.farRightContent: ToolButton
     {
         enabled: imageDoc.edited
         Maui.Controls.status : imageDoc.edited ? Maui.Controls.Negative : Maui.Controls.Normal
-        text: i18n("Cancel")
+        icon.name: "dialog-cancel"
         onClicked: control.cancel()
     }
 
     footBar.middleContent: control.middleContentBar
 
     headBar.farLeftContent: [
-        Button
+        ToolButton
         {
-            icon.name: "go-previous"
-            text: imageDoc.edited ? i18n("Save") : i18n("Back")
+            icon.name: imageDoc.edited ? "document-save" : "go-previous"
             Maui.Controls.status : imageDoc.edited ? Maui.Controls.Positive : Maui.Controls.Normal
 
             onClicked:
