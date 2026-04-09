@@ -26,7 +26,6 @@ find_package(ECM ${REQUIRED_KF_VERSION} NO_MODULE)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
 
 include(GenerateExportHeader)
-include(GNUInstallDirs)
 include(FeatureSummary)
 include(CMakePackageConfigHelpers)
 
