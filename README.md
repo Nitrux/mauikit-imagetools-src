@@ -1,27 +1,9 @@
-<!--
-SPDX-FileCopyrightText: 2020 Carl Schwan <carl@carlschwan.eu>
+# MauiKit ImageTools
 
-SPDX-License-Identifier: BSD-2-Clause
--->
+A set of QtQuick components aimed at enabling basic image editing capabilities.
 
-# KQuickImageEditor
+# Issues
 
-## Introduction
+If you find problems with the contents of this repository please create an issue.
 
-KQuickImageEditor is a set of QtQuick components providing basic image editing
-capabilities.
-
-![Video in action](koko-animation.mp4)
-
-## Examples
-
-An example can be found in [the examples folder](examples).
-
-## License
-
-KQuickImageEditor is a licensed under the Lesser General Public License version
-2.1 or later. A copy of the license can be found in
-[this repo](LICENSES/LGPL-2.1-or-later.txt).
-
-The examples are licensed under the 2-Clause BSD, that can be found in
-[here](LICENSES/BSD-2-Clause.txt).
+©2026 Nitrux Latinoamericana S.C.
