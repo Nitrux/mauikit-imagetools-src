@@ -80,7 +80,7 @@ QImage mat2Image(const cv::Mat &mat, MatColorOrder order=MCO_BGR, QImage::Format
  * - User must make sure that the color channels order is the same as
  *   the color channels order requried by QImage.
  */
-cv::Mat image2Mat_shared(const QImage &img, MatColorOrder *order=0);
+cv::Mat image2Mat_shared(const QImage &img, MatColorOrder *order=nullptr);
 QImage mat2Image_shared(const cv::Mat &mat, QImage::Format formatHint = QImage::Format_Invalid);
 
 } //namespace QtOcv

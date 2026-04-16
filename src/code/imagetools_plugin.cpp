@@ -42,6 +42,4 @@ QUrl ImageToolsPlugin::componentUrl(const QString &fileName) const
     return QUrl(resolveFileUrl(fileName));
 }
 
-#include "imagetools_plugin.moc"
-#include "moc_imagetools_plugin.cpp"
 

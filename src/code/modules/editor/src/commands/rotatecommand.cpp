@@ -13,6 +13,7 @@ RotateCommand::RotateCommand(const QTransform &tranform)
 
 QImage RotateCommand::undo(QImage image)
 {
+    Q_UNUSED(image);
     return m_image;
 }
 

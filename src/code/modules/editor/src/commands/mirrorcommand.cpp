@@ -14,11 +14,21 @@ MirrorCommand::MirrorCommand(bool horizontal, bool vertical)
 
 QImage MirrorCommand::undo(QImage image)
 {
+    Q_UNUSED(image);
     return m_image;
 }
 
 QImage MirrorCommand::redo(QImage image)
 {
-    m_image= image;
-    return image.mirrored(m_horizontal, m_vertical);
+    m_image = image;
+
+    Qt::Orientations orientations;
+    if (m_horizontal) {
+        orientations |= Qt::Horizontal;
+    }
+    if (m_vertical) {
+        orientations |= Qt::Vertical;
+    }
+
+    return orientations ? image.flipped(orientations) : image;
 }

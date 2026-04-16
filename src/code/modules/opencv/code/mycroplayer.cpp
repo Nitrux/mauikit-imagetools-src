@@ -55,6 +55,7 @@ void MyCropLayer::forward(std::vector<cv::Mat *> &input,
                           std::vector<cv::Mat> &output,
                           std::vector<cv::Mat> &internals)
 {
+    CV_UNUSED(internals);
     cv::Mat *inp = input[0];
     cv::Mat out = output[0];
     int ystart = (inp->size[2] - out.size[2]) / 2;
@@ -83,6 +84,7 @@ void MyCropLayer::forward(cv::InputArrayOfArrays inputs_arr,
                           cv::OutputArrayOfArrays outputs_arr,
                           cv::OutputArrayOfArrays internals_arr)
 {
+    CV_UNUSED(internals_arr);
     std::cerr << "MyCropLayer:forward ENTERNING" << std::endl << std::flush;
 
     std::vector<cv::Mat> inputs, outputs;
