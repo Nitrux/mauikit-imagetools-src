@@ -25,16 +25,30 @@ namespace
 std::string requestedLanguages(const OCRLanguageModel *languages)
 {
     if (!languages) {
-        return "eng";
+        return {};
     }
 
     const auto configuredLanguages = languages->getLanguagesString();
-    return configuredLanguages.empty() ? std::string("eng") : configuredLanguages;
+    return configuredLanguages.empty() ? std::string{} : configuredLanguages;
+}
+
+void warnNoLanguagesAvailable()
+{
+    static bool warned = false;
+    if (!warned) {
+        qWarning() << "Skipping OCR because no tesseract languages are available";
+        warned = true;
+    }
 }
 
 bool initTesseract(tesseract::TessBaseAPI *api, const std::string &languages)
 {
     if (!api) {
+        return false;
+    }
+
+    if (languages.empty()) {
+        warnNoLanguagesAvailable();
         return false;
     }
 
@@ -253,6 +267,11 @@ void OCS::getTextAsync()
     const auto preprocessImage = m_preprocessImage;
     const auto confidenceThreshold = m_confidenceThreshold;
     const auto languages = requestedLanguages(m_languages);
+    if (languages.empty()) {
+        m_ready = true;
+        Q_EMIT readyChanged();
+        return;
+    }
 
     auto func = [whiteList, blackList, segMode, preprocessImage, confidenceThreshold, languages](QUrl url, BoxesType levels) -> Res
     {
@@ -423,7 +442,12 @@ QString OCS::getText()
         return "Error!";
     }
 
-    if (!initTesseract(m_tesseract, requestedLanguages(m_languages)))
+    const auto languages = requestedLanguages(m_languages);
+    if (languages.empty()) {
+        return "Error!";
+    }
+
+    if (!initTesseract(m_tesseract, languages))
     {
         qDebug() << "Failed tesseract OCR init";
         return "Error!";

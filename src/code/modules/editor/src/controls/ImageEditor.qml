@@ -482,14 +482,14 @@ Maui.Page
         {
             id: _transBar
             visible: _private.currentAction == transformAction && control.ready
-            width: parent.width
+            width: parent ? parent.width : 0
         },
 
         Private.ColourBar
         {
             id: _colourBar
             visible:  _private.currentAction == colorsAction && control.ready
-            width: parent.width
+            width: parent ? parent.width : 0
         }
     ]
 
