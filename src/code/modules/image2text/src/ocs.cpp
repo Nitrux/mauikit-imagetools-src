@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QtConcurrent>
 #include <QFutureWatcher>
+#include <cctype>
 
 #include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
@@ -18,6 +19,34 @@
 #include <cvmatandqimage.h>
 
 static QMap<QString, QMap<OCS::BoxType, TextBoxes>> OCRCache;
+
+namespace
+{
+std::string requestedLanguages(const OCRLanguageModel *languages)
+{
+    if (!languages) {
+        return "eng";
+    }
+
+    const auto configuredLanguages = languages->getLanguagesString();
+    return configuredLanguages.empty() ? std::string("eng") : configuredLanguages;
+}
+
+bool initTesseract(tesseract::TessBaseAPI *api, const std::string &languages)
+{
+    if (!api) {
+        return false;
+    }
+
+    if (api->Init(nullptr, languages.c_str()) != 0) {
+        qWarning() << "Failed to initialize tesseract OCR with languages"
+                   << QString::fromStdString(languages);
+        return false;
+    }
+
+    return true;
+}
+}
 
 OCS::OCS(QObject *parent) : QObject(parent)
     ,m_tesseract(new tesseract::TessBaseAPI())
@@ -207,55 +236,77 @@ void OCS::getTextAsync()
 {
     m_ready = false;
     Q_EMIT readyChanged();
-    if(!QUrl::fromUserInput(m_filePath).isLocalFile())
+    const auto fileUrl = QUrl::fromUserInput(m_filePath);
+    if(!fileUrl.isLocalFile())
     {
         qDebug() << "URL is not local :: OCR";
+        m_ready = true;
+        Q_EMIT readyChanged();
         return;
     }
 
     typedef QMap<BoxType, TextBoxes> Res;
-    auto func = [ocs = this](QUrl url, BoxesType levels) -> Res
+    const auto levels = m_boxesTypes;
+    const auto whiteList = m_whiteList;
+    const auto blackList = m_blackList;
+    const auto segMode = m_segMode;
+    const auto preprocessImage = m_preprocessImage;
+    const auto confidenceThreshold = m_confidenceThreshold;
+    const auto languages = requestedLanguages(m_languages);
+
+    auto func = [whiteList, blackList, segMode, preprocessImage, confidenceThreshold, languages](QUrl url, BoxesType levels) -> Res
     {
-        if(ocs->m_tesseract == nullptr)
-        {
+        tesseract::TessBaseAPI *api = new tesseract::TessBaseAPI();
+        if (!initTesseract(api, languages)) {
+            api->End();
+            delete api;
             return Res{};
         }
 
-        tesseract::TessBaseAPI *api = new tesseract::TessBaseAPI();
-        api->Init(NULL, "eng");
-
         api->SetVariable("tessedit_char_whitelist",
-                         ocs->m_whiteList.toStdString().c_str());
+                         whiteList.toStdString().c_str());
         api->SetVariable("tessedit_char_blacklist",
-                         ocs->m_blackList.toStdString().c_str());
+                         blackList.toStdString().c_str());
 
-        api->SetPageSegMode(mapPageSegValue(ocs->m_segMode));
-        ocs->m_ocrImg = new QImage(url.toLocalFile());
+        api->SetPageSegMode(mapPageSegValue(segMode));
 
-        if(ocs->m_preprocessImage)
+        QImage ocrImg(url.toLocalFile());
+        if (ocrImg.isNull()) {
+            qWarning() << "Failed to load image for OCR" << url;
+            api->End();
+            delete api;
+            return Res{};
+        }
+
+        if(preprocessImage)
         {
-            auto m_imgMat = ConvertImage::qimageToMatRef(*ocs->m_ocrImg, CV_8UC4);
+            auto imgMat = ConvertImage::qimageToMatRef(ocrImg, CV_8UC4);
 
                    // PreprocessImage::toGray(m_imgMat,1);
             // PreprocessImage::adaptThreshold(m_imgMat, false, 3, 1);
 
-            auto m_ocrImg = ConvertImage::matToQimageRef(m_imgMat, QImage::Format_RGBA8888); //remember to delete
+            auto preprocessedImage = ConvertImage::matToQimageRef(imgMat, QImage::Format_RGBA8888);
 
-            api->SetImage(m_ocrImg.bits(), m_ocrImg.width(), m_ocrImg.height(), 4, m_ocrImg.bytesPerLine());
+            api->SetImage(preprocessedImage.bits(), preprocessedImage.width(), preprocessedImage.height(), 4, preprocessedImage.bytesPerLine());
 
         }else
         {
-            api->SetImage(ocs->m_ocrImg->bits(), ocs->m_ocrImg->width(), ocs->m_ocrImg->height(), 4,
-                          ocs->m_ocrImg->bytesPerLine());
-        }        
+            api->SetImage(ocrImg.bits(), ocrImg.width(), ocrImg.height(), 4,
+                          ocrImg.bytesPerLine());
+        }
 
         api->SetSourceResolution(200);
 
-        api->Recognize(0);
+        if (api->Recognize(nullptr) != 0) {
+            qWarning() << "Tesseract failed while recognizing image" << url;
+            api->End();
+            delete api;
+            return Res{};
+        }
 
         TextBoxes wordBoxes, lineBoxes, paragraphBoxes;
 
-        auto levelFunc = [ocs](tesseract::TessBaseAPI *api, tesseract::PageIteratorLevel level) -> TextBoxes
+        auto levelFunc = [confidenceThreshold](tesseract::TessBaseAPI *api, tesseract::PageIteratorLevel level) -> TextBoxes
         {
             TextBoxes res;
             tesseract::ResultIterator* ri = api->GetIterator();
@@ -269,7 +320,7 @@ void OCS::getTextAsync()
                     int x1, y1, x2, y2;
                     ri->BoundingBox(level, &x1, &y1, &x2, &y2);
 
-                    if(conf > ocs->m_confidenceThreshold && !isspace(*word))
+                    if(word != nullptr && conf > confidenceThreshold && !std::isspace(static_cast<unsigned char>(*word)))
                     {
                         bool bold, italic, underlined, monospace, serif, smallcaps = false;
                         int pointsize, fontid;
@@ -284,7 +335,6 @@ void OCS::getTextAsync()
 
 
                     }
-                    // qDebug()<< res;
 
                     delete[] word;
                 } while (ri->Next(level));
@@ -349,7 +399,7 @@ void OCS::getTextAsync()
                     watcher->deleteLater();
                 });
 
-        QFuture<Res> future = QtConcurrent::run(func, QUrl::fromUserInput(m_filePath), m_boxesTypes);
+        QFuture<Res> future = QtConcurrent::run(func, fileUrl, levels);
         watcher->setFuture(future);
 
                // connect(this, &OCS::destroyed, [this, watcher]()
@@ -373,7 +423,7 @@ QString OCS::getText()
         return "Error!";
     }
 
-    if (m_tesseract->Init(nullptr, m_languages->getLanguagesString().c_str()))
+    if (!initTesseract(m_tesseract, requestedLanguages(m_languages)))
     {
         qDebug() << "Failed tesseract OCR init";
         return "Error!";
@@ -386,6 +436,10 @@ QString OCS::getText()
     if(!m_area.isEmpty())
     {
         QImage img(url.toLocalFile());
+        if (img.isNull()) {
+            qWarning() << "Failed to load image for OCR" << url;
+            return "Error!";
+        }
         img = img.copy(m_area);
         //    img = img.convertToFormat(QImage::Format_Grayscale8);
 
@@ -394,7 +448,14 @@ QString OCS::getText()
     }else
     {
         Pix* im = pixRead(url.toLocalFile().toStdString().c_str());
+        if (!im) {
+            qWarning() << "Failed to load image for OCR" << url;
+            return "Error!";
+        }
         m_tesseract->SetImage(im);
+        outText = QString::fromStdString(m_tesseract->GetUTF8Text());
+        pixDestroy(&im);
+        return outText;
     }
 
     outText = QString::fromStdString(m_tesseract->GetUTF8Text());
