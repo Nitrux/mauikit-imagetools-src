@@ -10,6 +10,8 @@
 #include <QObject>
 #include <QStack>
 #include <QUrl>
+#include <QColor>
+#include <functional>
 #include <qqmlregistration.h>
 
 #include "commands/command.h"
@@ -52,9 +54,20 @@ class ImageDocument : public QObject
     Q_PROPERTY(int brightness READ brightness NOTIFY brightnessChanged FINAL)
     Q_PROPERTY(int contrast READ contrast NOTIFY contrastChanged FINAL)
     Q_PROPERTY(int saturation READ saturation NOTIFY saturationChanged FINAL)
+    Q_PROPERTY(int exposure READ exposure NOTIFY exposureChanged FINAL)
+    Q_PROPERTY(int brilliance READ brilliance NOTIFY brillianceChanged FINAL)
+    Q_PROPERTY(int highlights READ highlights NOTIFY highlightsChanged FINAL)
+    Q_PROPERTY(int shadows READ shadows NOTIFY shadowsChanged FINAL)
+    Q_PROPERTY(int blackPoint READ blackPoint NOTIFY blackPointChanged FINAL)
+    Q_PROPERTY(int vibrance READ vibrance NOTIFY vibranceChanged FINAL)
+    Q_PROPERTY(int warmth READ warmth NOTIFY warmthChanged FINAL)
+    Q_PROPERTY(int tint READ tint NOTIFY tintChanged FINAL)
     Q_PROPERTY(int hue READ hue NOTIFY hueChanged FINAL)
     Q_PROPERTY(int gamma READ gamma NOTIFY gammaChanged FINAL)
     Q_PROPERTY(int sharpness READ sharpness NOTIFY sharpnessChanged FINAL)
+    Q_PROPERTY(int definition READ definition NOTIFY definitionChanged FINAL)
+    Q_PROPERTY(int noiseReduction READ noiseReduction NOTIFY noiseReductionChanged FINAL)
+    Q_PROPERTY(int vignette READ vignette NOTIFY vignetteChanged FINAL)
     Q_PROPERTY(int threshold READ threshold NOTIFY thresholdChanged FINAL)
     Q_PROPERTY(int gaussianBlur READ gaussianBlur NOTIFY gaussianBlurChanged FINAL)
     Q_PROPERTY(QRectF area READ area WRITE setArea NOTIFY areaChanged RESET resetArea)
@@ -146,12 +159,23 @@ public:
      */
     Q_INVOKABLE bool saveAs(const QUrl &location);
 
+    Q_INVOKABLE void adjustExposure(int value); // between -100 and 100
+    Q_INVOKABLE void adjustBrilliance(int value); // between -100 and 100
+    Q_INVOKABLE void adjustHighlights(int value); // between -100 and 100
+    Q_INVOKABLE void adjustShadows(int value); // between -100 and 100
     Q_INVOKABLE void adjustBrightness(int value);// between -255 and 255
     Q_INVOKABLE void adjustContrast(int value); // between -255 and 255
+    Q_INVOKABLE void adjustBlackPoint(int value); // between -100 and 100
     Q_INVOKABLE void adjustSaturation(int value); //between -255 and 255
+    Q_INVOKABLE void adjustVibrance(int value); // between -100 and 100
+    Q_INVOKABLE void adjustWarmth(int value); // between -100 and 100
+    Q_INVOKABLE void adjustTint(int value); // between -100 and 100
     Q_INVOKABLE void adjustHue(int value); //between 0 and 180
     Q_INVOKABLE void adjustGamma(int value); //between -100 and 100
     Q_INVOKABLE void adjustSharpness(int value); //between 0 and 100
+    Q_INVOKABLE void adjustDefinition(int value); // between 0 and 100
+    Q_INVOKABLE void adjustNoiseReduction(int value); // between 0 and 100
+    Q_INVOKABLE void adjustVignette(int value); // between -100 and 100
     Q_INVOKABLE void adjustThreshold(int value); //between 0 and 180
     Q_INVOKABLE void adjustGaussianBlur(int value);
     Q_INVOKABLE void toGray();
@@ -162,12 +186,23 @@ public:
 
     Q_INVOKABLE void applyChanges();
 
+    int exposure() const;
+    int brilliance() const;
+    int highlights() const;
+    int shadows() const;
     int brightness() const;
     int contrast() const;
+    int blackPoint() const;
     int saturation() const;
+    int vibrance() const;
+    int warmth() const;
+    int tint() const;
     int hue() const;
     int gamma() const;
     int sharpness() const;
+    int definition() const;
+    int noiseReduction() const;
+    int vignette() const;
     int threshold() const;
     int gaussianBlur() const;
 
@@ -185,12 +220,23 @@ Q_SIGNALS:
     void pathChanged(const QUrl &url);
     void imageChanged();
     void editedChanged();
+    void exposureChanged();
+    void brillianceChanged();
+    void highlightsChanged();
+    void shadowsChanged();
     void brightnessChanged();
     void contrastChanged();
+    void blackPointChanged();
     void saturationChanged();
+    void vibranceChanged();
+    void warmthChanged();
+    void tintChanged();
     void areaChanged();
     void hueChanged();
     void sharpnessChanged();
+    void definitionChanged();
+    void noiseReductionChanged();
+    void vignetteChanged();
     void gammaChanged();
     void thresholdChanged();
     void changesAppliedChanged();
@@ -207,12 +253,23 @@ private:
     QImage m_image;
     QImage m_originalImage;
     bool m_edited;
+    int m_exposure = 0;
+    int m_brilliance = 0;
+    int m_highlights = 0;
+    int m_shadows = 0;
     int m_brightness = 0;
     int m_contrast = 0;
+    int m_blackPoint = 0;
     int m_saturation = 0;
+    int m_vibrance = 0;
+    int m_warmth = 0;
+    int m_tint = 0;
     int m_hue = 0;
     int m_gamma = 0;
     int m_sharpness = 0;
+    int m_definition = 0;
+    int m_noiseReduction = 0;
+    int m_vignette = 0;
     int m_threshold = 0;
     int m_gaussianBlur = 0;
     QRectF m_area;
@@ -221,6 +278,10 @@ private:
     void clearUndoStack();
     void clearRedoStack();
     void pushCommand(Command *command);
+    void applyTrackedAdjustment(int &member, int value, const QString &key, const std::function<QImage(QImage &)> &transformation, const std::function<void()> &emitChanged);
+    void tagAdjustmentState(Command *command, const QString &key, int oldValue, int newValue);
+    void restoreCommandState(Command *command, bool redoState);
+    void restoreAdjustmentValue(const QString &key, int value);
     bool m_changesApplied = true;
     bool m_changesSaved = true;
 };

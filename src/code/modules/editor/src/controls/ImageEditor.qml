@@ -70,8 +70,6 @@ Maui.Page
     readonly property alias editor : imageDoc
 
     property Item middleContentBar : _private.currentAction.bar
-    property string activeFilterMode : ""
-    property bool customFilterExpanded : false
 
     signal saved()
     signal savedAs(string url)
@@ -118,29 +116,6 @@ Maui.Page
         return ImageEditor.ActionType.Transform
     }
 
-    function toggleCustomFilter()
-    {
-        if (customFilterExpanded)
-        {
-            customFilterExpanded = false
-            activeFilterMode = ""
-            return
-        }
-
-        customFilterExpanded = true
-        activeFilterMode = "custom"
-        _private.currentAction = filterAction
-    }
-
-    function applyFilterPreset(mode, operation)
-    {
-        customFilterExpanded = false
-        activeFilterMode = mode
-        _private.currentAction = filterAction
-        operation()
-        imageDoc.applyChanges()
-    }
-
     function cancel()
     {
         if(imageDoc.edited)
@@ -185,7 +160,7 @@ Maui.Page
     readonly property Action filterAction : EditorAction
     {
         icon.name: "edit-add-effect"
-        text: i18nd("mauikitimagetools","Filters")
+        text: i18nd("mauikitimagetools","Colors")
         checked: _private.currentAction == this
         bar: effectBar
         onTriggered: {
@@ -391,7 +366,7 @@ Maui.Page
         Private.ColourBar
         {
             id: _colourBar
-            visible: _private.currentAction == filterAction && control.ready && control.customFilterExpanded
+            visible: _private.currentAction == filterAction && control.ready
             width: parent ? parent.width : 0
         }
     ]
@@ -401,39 +376,19 @@ Maui.Page
     {
         Layout.alignment: Qt.AlignHCenter
         spacing: Maui.Style.defaultSpacing
+
         Button
         {
-            highlighted: control.customFilterExpanded
-            text: i18nd("mauikitimagetools", "Custom")
-            onClicked: control.toggleCustomFilter()
+            highlighted: _colourBar.currentMode === "manual"
+            text: i18nd("mauikitimagetools", "Manual Color Adjustment")
+            onClicked: _colourBar.setMode("manual")
         }
 
         Button
         {
-            highlighted: control.activeFilterMode === "noir"
-            text: i18nd("mauikitimagetools", "Noir")
-            onClicked: control.applyFilterPreset("noir", () => editor.toGray())
-        }
-
-        Button
-        {
-            highlighted: control.activeFilterMode === "mono"
-            text: i18nd("mauikitimagetools", "Mono")
-            onClicked: control.applyFilterPreset("mono", () => editor.toBW())
-        }
-
-        Button
-        {
-            highlighted: control.activeFilterMode === "graphite"
-            text: i18nd("mauikitimagetools", "Graphite")
-            onClicked: control.applyFilterPreset("graphite", () => editor.toSketch())
-        }
-
-        Button
-        {
-            highlighted: control.activeFilterMode === "focus"
-            text: i18nd("mauikitimagetools", "Focus")
-            onClicked: control.applyFilterPreset("focus", () => editor.addVignette())
+            highlighted: _colourBar.currentMode === "presets"
+            text: i18nd("mauikitimagetools", "Color Presets")
+            onClicked: _colourBar.setMode("presets")
         }
     }
 }

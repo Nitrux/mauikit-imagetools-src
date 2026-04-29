@@ -1,8 +1,71 @@
 #include "transformcommand.h"
 #include "opencv2/photo.hpp"
+#include <algorithm>
+#include <cmath>
+#include <vector>
 #include <preprocessimage.hpp>
 #include <convertimage.hpp>
 #include <cvmatandqimage.h>
+
+namespace
+{
+double clampValue(double value, double minimum = 0.0, double maximum = 1.0)
+{
+    return std::max(minimum, std::min(maximum, value));
+}
+
+double smoothstep(double edge0, double edge1, double value)
+{
+    if (std::abs(edge1 - edge0) < 0.000001) {
+        return value < edge0 ? 0.0 : 1.0;
+    }
+
+    const double t = clampValue((value - edge0) / (edge1 - edge0));
+    return t * t * (3.0 - (2.0 * t));
+}
+
+cv::Mat ensureColorMat(const cv::Mat &image)
+{
+    if (image.channels() == 1) {
+        cv::Mat colorImage;
+        cv::cvtColor(image, colorImage, cv::COLOR_GRAY2BGR);
+        return colorImage;
+    }
+
+    return image.clone();
+}
+
+template<typename Transform>
+QImage applyLightnessTransform(QImage &ref, Transform transform)
+{
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+
+    cv::Mat lab;
+    cv::cvtColor(mat, lab, cv::COLOR_BGR2Lab);
+
+    std::vector<cv::Mat> channels;
+    cv::split(lab, channels);
+
+    cv::Mat lightness;
+    channels[0].convertTo(lightness, CV_32F, 1.0 / 255.0);
+
+    for (int row = 0; row < lightness.rows; ++row)
+    {
+        auto *line = lightness.ptr<float>(row);
+        for (int column = 0; column < lightness.cols; ++column)
+        {
+            line[column] = static_cast<float>(clampValue(transform(line[column])));
+        }
+    }
+
+    lightness.convertTo(channels[0], CV_8U, 255.0);
+    cv::merge(channels, lab);
+
+    cv::Mat output;
+    cv::cvtColor(lab, output, cv::COLOR_Lab2BGR);
+    return QtOcv::mat2Image(output);
+}
+}
 
 TransformCommand::TransformCommand(QImage image, Transformation trans, const std::function<void ()> &undo)
     : m_image(image)
@@ -69,6 +132,63 @@ QImage Trans::adjustGaussianBlur(QImage &ref, int value)
     return img;
 }
 
+QImage Trans::adjustExposure(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+    cv::Mat output;
+
+    const double exposureFactor = std::pow(2.0, value / 100.0);
+    mat.convertTo(output, -1, exposureFactor, 0);
+
+    return QtOcv::mat2Image(output);
+}
+
+QImage Trans::adjustBrilliance(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+    const double amount = value / 100.0;
+
+    return applyLightnessTransform(ref, [amount](double lightness) {
+        const double midtoneWeight = 1.0 - std::abs((2.0 * lightness) - 1.0);
+        const double liftFactor = amount >= 0.0 ? (1.0 - lightness) : lightness;
+        const double lifted = lightness + (amount * midtoneWeight * liftFactor * 0.5);
+        const double contrasted = 0.5 + ((lifted - 0.5) * (1.0 + (amount * 0.18)));
+        return contrasted;
+    });
+}
+
+QImage Trans::adjustHighlights(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+    const double amount = value / 100.0;
+
+    return applyLightnessTransform(ref, [amount](double lightness) {
+        const double weight = smoothstep(0.45, 1.0, lightness);
+        if (amount >= 0.0) {
+            return lightness + (amount * weight * (1.0 - lightness) * 0.7);
+        }
+
+        return lightness + (amount * weight * lightness * 0.85);
+    });
+}
+
+QImage Trans::adjustShadows(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+    const double amount = value / 100.0;
+
+    return applyLightnessTransform(ref, [amount](double lightness) {
+        const double weight = smoothstep(0.0, 0.55, 1.0 - lightness);
+        if (amount >= 0.0) {
+            return lightness + (amount * weight * (1.0 - lightness) * 0.8);
+        }
+
+        return lightness + (amount * weight * lightness * 0.75);
+    });
+}
+
 QImage Trans::adjustContrast(QImage &ref, int value)
 {
     if(value > 100)
@@ -100,6 +220,21 @@ QImage Trans::adjustBrightness(QImage &ref, int value)
     return img;
 }
 
+QImage Trans::adjustBlackPoint(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+    const double amount = value / 100.0;
+
+    return applyLightnessTransform(ref, [amount](double lightness) {
+        const double shadowWeight = smoothstep(0.0, 0.6, 1.0 - lightness);
+        if (amount >= 0.0) {
+            return lightness - (amount * shadowWeight * (1.0 - lightness) * 0.6);
+        }
+
+        return lightness + ((-amount) * shadowWeight * (1.0 - lightness) * 0.45);
+    });
+}
+
 QImage Trans::adjustSaturation(QImage &ref, int value)
 {
     if(value > 100)
@@ -113,6 +248,90 @@ QImage Trans::adjustSaturation(QImage &ref, int value)
 
     auto img = QtOcv::mat2Image(newMat);
     return img;
+}
+
+QImage Trans::adjustVibrance(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+    const double amount = value / 100.0;
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+    cv::Mat hsv;
+    cv::cvtColor(mat, hsv, cv::COLOR_BGR2HSV);
+
+    cv::Mat hsvFloat;
+    hsv.convertTo(hsvFloat, CV_32F);
+
+    for (int row = 0; row < hsvFloat.rows; ++row)
+    {
+        auto *line = hsvFloat.ptr<cv::Vec3f>(row);
+        for (int column = 0; column < hsvFloat.cols; ++column)
+        {
+            auto &pixel = line[column];
+            double saturation = pixel[1] / 255.0;
+
+            if (amount >= 0.0) {
+                saturation += amount * (1.0 - saturation) * 0.8;
+            } else {
+                saturation += amount * saturation * 0.7;
+            }
+
+            pixel[1] = static_cast<float>(clampValue(saturation) * 255.0);
+        }
+    }
+
+    hsvFloat.convertTo(hsv, CV_8U);
+    cv::Mat output;
+    cv::cvtColor(hsv, output, cv::COLOR_HSV2BGR);
+    return QtOcv::mat2Image(output);
+}
+
+QImage Trans::adjustWarmth(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+    cv::Mat lab;
+    cv::cvtColor(mat, lab, cv::COLOR_BGR2Lab);
+
+    std::vector<cv::Mat> channels;
+    cv::split(lab, channels);
+
+    cv::Mat warmthChannel;
+    channels[2].convertTo(warmthChannel, CV_32F);
+    warmthChannel += value * 0.8f;
+    cv::min(warmthChannel, 255.0, warmthChannel);
+    cv::max(warmthChannel, 0.0, warmthChannel);
+    warmthChannel.convertTo(channels[2], CV_8U);
+
+    cv::merge(channels, lab);
+    cv::Mat output;
+    cv::cvtColor(lab, output, cv::COLOR_Lab2BGR);
+    return QtOcv::mat2Image(output);
+}
+
+QImage Trans::adjustTint(QImage &ref, int value)
+{
+    value = std::max(-100, std::min(100, value));
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+    cv::Mat lab;
+    cv::cvtColor(mat, lab, cv::COLOR_BGR2Lab);
+
+    std::vector<cv::Mat> channels;
+    cv::split(lab, channels);
+
+    cv::Mat tintChannel;
+    channels[1].convertTo(tintChannel, CV_32F);
+    tintChannel += value * 0.8f;
+    cv::min(tintChannel, 255.0, tintChannel);
+    cv::max(tintChannel, 0.0, tintChannel);
+    tintChannel.convertTo(channels[1], CV_8U);
+
+    cv::merge(channels, lab);
+    cv::Mat output;
+    cv::cvtColor(lab, output, cv::COLOR_Lab2BGR);
+    return QtOcv::mat2Image(output);
 }
 
 QImage Trans::adjustHue(QImage &ref, int value)
@@ -152,6 +371,45 @@ QImage Trans::adjustSharpness(QImage &ref, int value)
     auto img = QtOcv::mat2Image(newMat);
     qDebug() << m_imgMat.rows << m_imgMat.cols << m_imgMat.step << m_imgMat.empty();
     return img;
+}
+
+QImage Trans::adjustDefinition(QImage &ref, int value)
+{
+    value = std::max(0, std::min(100, value));
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+    cv::Mat lab;
+    cv::cvtColor(mat, lab, cv::COLOR_BGR2Lab);
+
+    std::vector<cv::Mat> channels;
+    cv::split(lab, channels);
+
+    cv::Mat blurred;
+    cv::GaussianBlur(channels[0], blurred, cv::Size(), 1.4);
+
+    const double amount = value / 100.0;
+    cv::addWeighted(channels[0], 1.0 + (amount * 1.25), blurred, -(amount * 1.15), 0, channels[0]);
+
+    cv::merge(channels, lab);
+    cv::Mat output;
+    cv::cvtColor(lab, output, cv::COLOR_Lab2BGR);
+    return QtOcv::mat2Image(output);
+}
+
+QImage Trans::adjustNoiseReduction(QImage &ref, int value)
+{
+    value = std::max(0, std::min(100, value));
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
+    if (value == 0) {
+        return QtOcv::mat2Image(mat);
+    }
+
+    cv::Mat output;
+    const float lumaStrength = 2.0f + (value / 8.0f);
+    const float chromaStrength = 1.5f + (value / 10.0f);
+    cv::fastNlMeansDenoisingColored(mat, output, lumaStrength, chromaStrength, 7, 21);
+    return QtOcv::mat2Image(output);
 }
 
 QImage Trans::adjustThreshold(QImage &ref, int value)
@@ -212,9 +470,12 @@ static void generateGradient(cv::Mat& mask)
     }
 }
 
-QImage Trans::vignette(QImage &ref)
+QImage Trans::adjustVignette(QImage &ref, int value)
 {
-    auto mat = QtOcv::image2Mat(ref);
+    value = std::max(-100, std::min(100, value));
+    const double amount = value / 100.0;
+
+    auto mat = ensureColorMat(QtOcv::image2Mat(ref));
 
     cv::Mat maskImg(mat.size(), CV_64F);
     generateGradient(maskImg);
@@ -227,7 +488,17 @@ QImage Trans::vignette(QImage &ref)
         for (int col = 0; col < labImg.size().width; col++)
         {
             cv::Vec3b value = labImg.at<cv::Vec3b>(row, col);
-            value.val[0] *= maskImg.at<double>(row, col);
+            const double mask = maskImg.at<double>(row, col);
+            const double edgeWeight = 1.0 - mask;
+            double lightness = value.val[0] / 255.0;
+
+            if (amount >= 0.0) {
+                lightness *= 1.0 - (amount * edgeWeight * 0.9);
+            } else {
+                lightness += (-amount) * edgeWeight * (1.0 - lightness) * 0.7;
+            }
+
+            value.val[0] = static_cast<uchar>(clampValue(lightness) * 255.0);
             labImg.at<cv::Vec3b>(row, col) =  value;
         }
     }
@@ -236,6 +507,11 @@ QImage Trans::vignette(QImage &ref)
     cv::cvtColor(labImg, output, cv::COLOR_Lab2BGR);
     auto img = QtOcv::mat2Image(output);
     return img;
+}
+
+QImage Trans::vignette(QImage &ref)
+{
+    return adjustVignette(ref, 55);
 }
 
 QImage Trans::addBorder(QImage &ref, int thickness, const QColor &color)

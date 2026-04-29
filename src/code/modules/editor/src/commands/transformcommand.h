@@ -1,5 +1,6 @@
 #pragma once
 #include "command.h"
+#include <functional>
 
 typedef const std::function<QImage (QImage&)> & Transformation;
 template< class T>
@@ -26,12 +27,23 @@ namespace Trans
 QImage toGray(QImage &ref);
 QImage sketch(QImage &ref);
 QImage adjustGaussianBlur(QImage &ref, int value);
+QImage adjustExposure(QImage &ref, int value);
+QImage adjustBrilliance(QImage &ref, int value);
+QImage adjustHighlights(QImage &ref, int value);
+QImage adjustShadows(QImage &ref, int value);
 QImage adjustContrast(QImage &ref, int value);
 QImage adjustBrightness(QImage &ref, int value);
+QImage adjustBlackPoint(QImage &ref, int value);
 QImage adjustSaturation(QImage &ref, int value);
+QImage adjustVibrance(QImage &ref, int value);
+QImage adjustWarmth(QImage &ref, int value);
+QImage adjustTint(QImage &ref, int value);
 QImage adjustHue(QImage &ref, int value);
 QImage adjustGamma(QImage &ref, int value);
 QImage adjustSharpness(QImage &ref, int value);
+QImage adjustDefinition(QImage &ref, int value);
+QImage adjustNoiseReduction(QImage &ref, int value);
+QImage adjustVignette(QImage &ref, int value);
 QImage adjustThreshold(QImage &ref, int value);
 QImage vignette(QImage &ref);
 QImage addBorder(QImage &ref, int thickness, const QColor &color);

@@ -9,6 +9,7 @@ ColumnLayout
     id: control
 
     spacing: 0
+    property bool committingRotation : false
 
     property alias rotationSlider: _freeRotationSlider
     // property alias rotationButton : _freeRotationButton
@@ -41,11 +42,7 @@ ColumnLayout
             icon.name: "object-rotate-left"
             //                    display: ToolButton.IconOnly
             text: i18nc("@action:button Rotate an image 90°", "Rotate 90°");
-            onClicked:
-            {
-                let value = _freeRotationSlider.value-90
-                _freeRotationSlider.value = value < -180 ? 90 : value
-            }
+            onClicked: imageDoc.rotate(-90)
         }
     }
 
@@ -74,36 +71,20 @@ ColumnLayout
             snapMode: Slider.SnapAlways
             stepSize: 1
             clip: true
-        }
 
-        leftContent: ToolButton
-        {
-            //                    text: i18nd("mauikitimagetools","Accept")
-
-            icon.name: "checkmark"
-            onClicked:
+            onPressedChanged:
             {
-                const value = _freeRotationSlider.value
-                _freeRotationSlider.value = 0
+                if (pressed || control.committingRotation)
+                    return
 
-                console.log("Rotate >> " , value)
-                imageDoc.rotate(value);
+                const rotationValue = Math.round(value)
+                if (rotationValue === 0)
+                    return
 
-
-                // if(_cropButton.checked)
-                // {
-                //     crop()
-                // }
-            }
-        }
-
-        rightContent:  ToolButton
-        {
-            //                    text: i18nd("mauikitimagetools","Cancel")
-            icon.name: "dialog-cancel"
-            onClicked:
-            {
-                _freeRotationSlider.value = 0
+                control.committingRotation = true
+                imageDoc.rotate(rotationValue)
+                value = 0
+                control.committingRotation = false
             }
         }
     }
