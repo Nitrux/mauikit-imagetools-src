@@ -47,6 +47,8 @@ class ImageDocument : public QObject
     Q_PROPERTY(bool edited READ edited NOTIFY editedChanged)
     Q_PROPERTY(bool changesApplied READ changesApplied NOTIFY changesAppliedChanged)
     Q_PROPERTY(bool changesSaved READ changesSaved NOTIFY changesSavedChanged)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY canUndoChanged)
+    Q_PROPERTY(bool canRedo READ canRedo NOTIFY canRedoChanged)
     Q_PROPERTY(int brightness READ brightness NOTIFY brightnessChanged FINAL)
     Q_PROPERTY(int contrast READ contrast NOTIFY contrastChanged FINAL)
     Q_PROPERTY(int saturation READ saturation NOTIFY saturationChanged FINAL)
@@ -122,6 +124,11 @@ public:
     Q_INVOKABLE void undo();
 
     /**
+     * Redo the last undone edit on the image.
+     */
+    Q_INVOKABLE void redo();
+
+    /**
      * Cancel all the edit.
      */
     Q_INVOKABLE void cancel();
@@ -171,6 +178,8 @@ public:
     bool changesApplied() const;
 
     bool changesSaved() const;
+    bool canUndo() const;
+    bool canRedo() const;
 
 Q_SIGNALS:
     void pathChanged(const QUrl &url);
@@ -187,10 +196,14 @@ Q_SIGNALS:
     void changesAppliedChanged();
     void gaussianBlurChanged();
     void changesSavedChanged();
+    void canUndoChanged();
+    void canRedoChanged();
 
 private:
     QUrl m_path;
     QStack<Command *> m_undos;
+    QStack<Command *> m_redos;
+    QStack<QImage> m_redoImages;
     QImage m_image;
     QImage m_originalImage;
     bool m_edited;
@@ -205,6 +218,9 @@ private:
     QRectF m_area;
 
     void resetValues();
+    void clearUndoStack();
+    void clearRedoStack();
+    void pushCommand(Command *command);
     bool m_changesApplied = true;
     bool m_changesSaved = true;
 };

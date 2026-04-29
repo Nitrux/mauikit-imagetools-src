@@ -1,7 +1,6 @@
 import QtQuick 
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Effects
 
 import org.mauikit.controls as Maui
 import org.mauikit.imagetools.editor as ITE
@@ -28,23 +27,37 @@ Maui.Page
                             return
                         }
 
-                        if(event.key == Qt.Key_Z && (event.modifiers & Qt.ControlModifier))
+                        if(event.key == Qt.Key_S
+                                && (event.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) === (Qt.ControlModifier | Qt.ShiftModifier))
+                        {
+                            control.saveAsRequested()
+                            event.accepted =true
+                            return
+                        }
+
+                        if((event.key == Qt.Key_Y && (event.modifiers & Qt.ControlModifier))
+                                || (event.key == Qt.Key_Z
+                                    && (event.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) === (Qt.ControlModifier | Qt.ShiftModifier)))
+                        {
+                            imageDoc.redo()
+                            event.accepted =true
+                            return
+                        }
+
+                        if(event.key == Qt.Key_Z
+                                && (event.modifiers & Qt.ControlModifier)
+                                && !(event.modifiers & Qt.ShiftModifier))
                         {
                             imageDoc.undo()
                             event.accepted =true
                             return
                         }
 
-                        if(event.key == Qt.Key_S && (event.modifiers & Qt.ControlModifier))
+                        if(event.key == Qt.Key_S
+                                && (event.modifiers & Qt.ControlModifier)
+                                && !(event.modifiers & Qt.ShiftModifier))
                         {
-                            imageDoc.save()
-                            event.accepted =true
-                            return
-                        }
-
-                        if(event.key == Qt.Key_S && (event.modifiers & Qt.ControlModifier | Qt.ShiftModifier))
-                        {
-                            imageDoc.saveAs()
+                            control.save()
                             event.accepted =true
                             return
                         }
@@ -58,11 +71,9 @@ Maui.Page
 
     property Item middleContentBar : _private.currentAction.bar
 
-    property int preferredBorderThickness : 80
-    property string preferredBorderColor : "white"
-
     signal saved()
     signal savedAs(string url)
+    signal saveAsRequested()
     signal canceled()
 
     enum ActionType
@@ -87,7 +98,7 @@ Maui.Page
                                               {
                                               case ImageEditor.ActionType.Colors: return colorsAction
                                               case ImageEditor.ActionType.Transform: return transformAction
-                                              case ImageEditor.ActionType.Layers: return layerAction
+                                              case ImageEditor.ActionType.Layers: return transformAction
                                               case ImageEditor.ActionType.Filters: return filterAction
                                               default: return null
                                               }
@@ -102,11 +113,10 @@ Maui.Page
         if(_private.currentAction == transformAction)
             return ImageEditor.ActionType.Transform
 
-        if(_private.currentAction == layerAction)
-            return ImageEditor.ActionType.Layers
-
         if(_private.currentAction == filterAction)
             return ImageEditor.ActionType.Filters
+
+        return ImageEditor.ActionType.Transform
     }
 
     function cancel()
@@ -129,8 +139,16 @@ Maui.Page
 
     function save()
     {
-        imageDoc.save()
-        control.saved()
+        if (imageDoc.save())
+            control.saved()
+    }
+
+    function discard()
+    {
+        if (imageDoc.edited)
+            imageDoc.cancel()
+
+        control.canceled()
     }
 
     readonly property Action colorsAction : EditorAction
@@ -145,75 +163,20 @@ Maui.Page
 
     readonly property Action transformAction : EditorAction
     {
-        icon.name: "dialog-transform"
+        icon.name: "transform-rotate"
         text: i18nd("mauikitimagetools","Transform")
         checked: _private.currentAction == this
         bar: _transBar.bar
         onTriggered: _private.currentAction = this
     }
 
-    readonly property Action layerAction : EditorAction
-    {
-        icon.name: "layer-new"
-        text: i18nd("mauikitimagetools","Layer")
-        checked: _private.currentAction == this
-        onTriggered: _private.currentAction = this
-    }
-
     readonly property Action filterAction : EditorAction
     {
-        icon.name: "image-auto-adjust"
+        icon.name: "edit-add-effect"
         text: i18nd("mauikitimagetools","Filters")
         checked: _private.currentAction == this
         bar: effectBar
         onTriggered: _private.currentAction = this
-    }
-
-    Component
-    {
-        id: _boderDialogComponent
-        Maui.InfoDialog
-        {
-            onClosed: destroy()
-            standardButtons: Dialog.Apply | Dialog.Cancel
-            message: i18n("Select a color and thickness for the border effect.")
-
-            Maui.FlexSectionItem
-            {
-                label1.text: i18n("Border color")
-
-                Maui.ColorsRow
-                {
-                    id: _colorsRow
-                    currentColor: control.preferredBorderColor
-                    defaultColor: "white"
-                    colors: ["white", "black", "grey", "pink", "violet", "green", "blue", "yellow"]
-                    onColorPicked: (color) => control.preferredBorderColor = color
-                }
-            }
-
-            Maui.FlexSectionItem
-            {
-                label1.text: i18n("Border thickness")
-
-                SpinBox
-                {
-                    id: _spinBox
-                    from: 1
-                    to: 200
-                    value: control.preferredBorderThickness
-                    onValueChanged: control.preferredBorderThickness = value
-                }
-            }
-
-            onApplied:
-            {
-                imageDoc.addBorder(control.preferredBorderThickness, control.preferredBorderColor)
-                close()
-            }
-
-            onRejected: close()
-        }
     }
 
     Component
@@ -223,7 +186,7 @@ Maui.Page
         Maui.InfoDialog
         {
             template.iconSource: "dialog-warning"
-            message: i18n("Before closing the editor, do you want to apply the changes made to the image or discard them? Pick cancel to return to the editor.")
+            message: i18n("Before closing the editor, do you want to save the changes made to the image or discard them? Pick cancel to return to the editor.")
             standardButtons: Dialog.Apply | Dialog.Discard | Dialog.Cancel
 
             onClosed: destroy()
@@ -244,43 +207,113 @@ Maui.Page
     // split: width < 600
 
     // footerMargins: Maui.Style.defaultPadding
-    headBar.farRightContent: ToolButton
-    {
-        enabled: imageDoc.edited
-        Maui.Controls.status : imageDoc.edited ? Maui.Controls.Negative : Maui.Controls.Normal
-        icon.name: "dialog-cancel"
-        onClicked: control.cancel()
-    }
+    headBar.leftContent: [
+        ToolButton
+        {
+            icon.name: "go-previous"
+            onClicked: control.cancel()
+        },
+
+        ToolSeparator
+        {
+            bottomPadding: 10
+            topPadding: 10
+        },
+
+        RowLayout
+        {
+            spacing: Maui.Style.defaultSpacing
+
+            Repeater
+            {
+                model: [colorsAction, transformAction, filterAction]
+
+                ToolButton
+                {
+                    action: modelData
+                    display: ToolButton.IconOnly
+                    flat: false
+                }
+            }
+        }
+    ]
 
     footBar.middleContent: control.middleContentBar
 
-    headBar.farLeftContent: [
+    headBar.rightContent: [
         ToolButton
         {
-            icon.name: imageDoc.edited ? "document-save" : "go-previous"
-            Maui.Controls.status : imageDoc.edited ? Maui.Controls.Positive : Maui.Controls.Normal
+            icon.name: "edit-undo"
+            enabled: imageDoc.edited
+            onClicked: imageDoc.undo()
+        },
 
-            onClicked:
+        ToolButton
+        {
+            icon.name: "edit-redo"
+            enabled: imageDoc.canRedo
+            onClicked: imageDoc.redo()
+        },
+
+        ToolSeparator
+        {
+            bottomPadding: 10
+            topPadding: 10
+        },
+
+        ToolButton
+        {
+            id: _saveButton
+            flat: false
+            enabled: imageDoc.edited
+            icon.name: "document-save"
+            Maui.Controls.status : imageDoc.edited ? Maui.Controls.Positive : Maui.Controls.Normal
+            icon.color: enabled ? "#fafafa" : Qt.rgba(0.98, 0.98, 0.98, 0.55)
+            background: Rectangle
             {
-                if(imageDoc.edited)
-                {
-                    control.save()
-                }else
-                {
-                    control.canceled()
-                }
+                radius: Maui.Style.radiusV
+                color: !_saveButton.enabled
+                    ? Maui.Theme.backgroundColor
+                    : (_saveButton.pressed || _saveButton.down || _saveButton.checked
+                       ? Qt.darker(Maui.Theme.positiveBackgroundColor, 1.12)
+                       : (_saveButton.hovered
+                          ? Qt.lighter(Maui.Theme.positiveBackgroundColor, 1.05)
+                          : Maui.Theme.positiveBackgroundColor))
+                border.color: "transparent"
+                opacity: _saveButton.enabled ? 1 : 0.55
             }
+            onClicked: control.save()
         },
 
         ToolButton
         {
             icon.name: "document-save-as"
             enabled: imageDoc.edited
-            onClicked:
+            onClicked: control.saveAsRequested()
+        },
+
+        ToolButton
+        {
+            id: _cancelButton
+            flat: false
+            enabled: imageDoc.edited
+            Maui.Controls.status : imageDoc.edited ? Maui.Controls.Negative : Maui.Controls.Normal
+            icon.color: enabled ? "#fafafa" : Qt.rgba(0.98, 0.98, 0.98, 0.55)
+            icon.name: "dialog-cancel"
+            background: Rectangle
             {
-                imageDoc.saveAs()
-                control.savedAs()
+                radius: Maui.Style.radiusV
+                color: !_cancelButton.enabled
+                    ? Maui.Theme.backgroundColor
+                    : (_cancelButton.pressed || _cancelButton.down || _cancelButton.checked
+                       ? Qt.darker(Maui.Theme.negativeBackgroundColor, 1.12)
+                       : (_cancelButton.hovered
+                          ? Qt.lighter(Maui.Theme.negativeBackgroundColor, 1.05)
+                          : Maui.Theme.negativeBackgroundColor))
+                border.color: "transparent"
+                opacity: _cancelButton.enabled ? 1 : 0.55
             }
+            onClicked: control.discard()
         }
     ]
 
@@ -302,37 +335,6 @@ Maui.Page
             path: control.url
         }
 
-        ITE.SelectionTool
-        {
-            id: selectionTool
-            width: editImage.paintedWidth
-            height: editImage.paintedHeight
-            x: editImage.horizontalPadding
-            y: editImage.verticalPadding
-            ITE.CropBackground
-            {
-                anchors.fill: parent
-                z: -1
-                insideX: selectionTool.selectionX
-                insideY: selectionTool.selectionY
-                insideWidth: selectionTool.selectionWidth
-                insideHeight: selectionTool.selectionHeight
-            }
-            Connections {
-                target: selectionTool.selectionArea
-                function onDoubleClicked() {
-                    control.crop()
-                }
-            }
-        }
-
-        onImageChanged:
-        {
-            selectionTool.selectionX = 0
-            selectionTool.selectionY = 0
-            selectionTool.selectionWidth = Qt.binding(() => selectionTool.width)
-            selectionTool.selectionHeight = Qt.binding(() => selectionTool.height)
-        }
     }
 
     Canvas
@@ -362,119 +364,6 @@ Maui.Page
         }
     }
 
-
-    Loader
-    {
-        id: _actionsBarLoader
-        visible: status == Loader.Ready
-        asynchronous: true
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.margins: Maui.Style.space.big
-
-        sourceComponent: Pane
-        {
-            id: _pane
-            Maui.Theme.colorSet: Maui.Theme.Complementary
-            Maui.Theme.inherit: false
-
-            // x: control.width - width - Maui.Style.space.big
-            // y: control.height - height - Maui.Style.space.big
-            background: Rectangle
-            {
-                radius: Maui.Style.radiusV
-                color: Maui.Theme.backgroundColor
-
-                layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
-                layer.effect: MultiEffect
-                {
-                    autoPaddingEnabled: true
-                    shadowEnabled: true
-                    shadowColor: "#000000"
-                }
-            }
-
-            ScaleAnimator on scale
-            {
-                from: 0
-                to: 1
-                duration: Maui.Style.units.longDuration
-                running: visible
-                easing.type: Easing.OutInQuad
-            }
-
-            OpacityAnimator on opacity
-            {
-                from: 0
-                to: 1
-                duration: Maui.Style.units.longDuration
-                running: visible
-            }
-
-            contentItem:  RowLayout
-            {
-                spacing: Maui.Style.defaultSpacing
-
-                ToolButton
-                {
-                    icon.name: "edit-undo"
-                    Layout.alignment: Qt.AlignVCenter
-                    onClicked: imageDoc.undo()
-                    checkable: false
-                    enabled:imageDoc.edited
-                }
-
-                Item{}
-
-                Repeater
-                {
-                    model: [colorsAction, transformAction, layerAction, filterAction]
-
-                    ToolButton
-                    {
-                        action: modelData
-                        display: ToolButton.IconOnly
-                        flat: false
-                    }
-                }
-
-                Item{}
-
-                ToolButton
-                {
-                    //                    text: i18nd("mauikitimagetools","Accept")
-                    icon.name: "dialog-apply"
-                    onClicked: imageDoc.applyChanges()
-                    enabled: !imageDoc.changesApplied
-
-                }
-            }
-
-            // DragHandler
-            // {
-            //     target: _pane
-            //     // target: _actionsBarLoader
-            //     // grabPermissions: PointerHandler.TakeOverForbidden | PointerHandler.CanTakeOverFromAnything
-            //     xAxis.maximum: control.width - _pane.width
-            //     xAxis.minimum: 0
-
-            //     yAxis.enabled : false
-
-            //     onActiveChanged:
-            //     {
-            //         if(!active)
-            //         {
-            //             console.log(centroid.position, centroid.scenePosition, centroid.velocity.x)
-
-            //             let pos = centroid.velocity.x
-            //             _pane.x = Qt.binding(()=> { return pos < 0 ? Maui.Style.space.big : control.width - _pane.width - Maui.Style.space.big })
-            //             _pane.y = Qt.binding(()=> { return control.height - _pane.height - Maui.Style.space.big })
-            //         }
-            //     }
-            // }
-        }
-    }
-
     // footBar.visible: false
     footerColumn: [
 
@@ -500,80 +389,29 @@ Maui.Page
         spacing: Maui.Style.defaultSpacing
         Button
         {
-            text: "gray"
-            checkable: true
-            checked: false
-            onClicked:
-            {
-                if(checked)
-                {
-                    editor.toGray()
-                    editor.apply()
-                }else
-                {
-                    editor.undo()
-                }
+            text: i18nd("mauikitimagetools", "Noir")
+            onClicked: {
+                editor.toGray()
+                editor.applyChanges()
             }
         }
 
         Button
         {
-            text: "bw"
+            text: i18nd("mauikitimagetools", "Mono")
             onClicked: editor.toBW();
         }
 
         Button
         {
-            text: "sketch"
+            text: i18nd("mauikitimagetools", "Graphite")
             onClicked: editor.toSketch();
         }
 
         Button
         {
-            text: "vignette"
+            text: i18nd("mauikitimagetools", "Focus")
             onClicked: editor.addVignette();
         }
-
-        Maui.ToolActions
-        {
-            checkable: false
-            autoExclusive: false
-
-
-            Action
-            {
-
-                text: i18n("Border")
-                onTriggered: editor.addBorder(preferredBorderThickness, preferredBorderColor);
-            }
-
-            Action
-            {
-                icon.name: "configuration"
-                onTriggered:
-                {
-                    var dialog = _boderDialogComponent.createObject(this)
-                    dialog.open()
-                }
-            }
-        }
-    }
-
-
-    function selectionToolRect()
-    {
-        return Qt.rect(selectionTool.selectionX / editImage.ratioX,
-                       selectionTool.selectionY / editImage.ratioY,
-                       selectionTool.selectionWidth / editImage.ratioX,
-                       selectionTool.selectionHeight / editImage.ratioY);
-    }
-
-    function crop()
-    {
-        console.log("CROP")
-        imageDoc.crop(selectionTool.selectionX / editImage.ratioX,
-                      selectionTool.selectionY / editImage.ratioY,
-                      selectionTool.selectionWidth / editImage.ratioX,
-                      selectionTool.selectionHeight / editImage.ratioY);
     }
 }

@@ -30,6 +30,12 @@ Item {
         property bool updatingPendingRect: false
         property rect pendingRect: currentRect
 
+        onPendingRectChanged: {
+            if (!_private.updatingPendingRect) {
+                _private.updateHandles();
+            }
+        }
+
         onPressedHandleChanged: {
             if (!pressedHandle && !_private.applyingPendingRect) {
                 Qt.callLater(_private.updateHandles);

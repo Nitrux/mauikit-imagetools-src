@@ -103,13 +103,7 @@ ColumnLayout
             icon.name: "dialog-cancel"
             onClicked:
             {
-
-                    _freeRotationSlider.value = 0
-
-                if(_cropButton.checked)
-                {
-                    _cropButton.checked = false
-                }
+                _freeRotationSlider.value = 0
             }
         }
     }
@@ -189,4 +183,3 @@ ColumnLayout
     //     }
     // }
 }
-

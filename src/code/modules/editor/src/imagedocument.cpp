@@ -23,17 +23,47 @@ ImageDocument::ImageDocument(QObject *parent)
     m_changesSaved = true;
 
     connect(this, &ImageDocument::pathChanged, this, [this](const QUrl &url) {
+        clearUndoStack();
+        clearRedoStack();
         m_image = QImage(url.isLocalFile() ? url.toLocalFile() : url.toString());
         m_originalImage = m_image;
         m_edited = false;
         m_changesApplied = true;
+        m_changesSaved = true;
 
         Q_EMIT editedChanged();
         Q_EMIT imageChanged();
         Q_EMIT changesAppliedChanged();
+        Q_EMIT changesSavedChanged();
 
         resetValues();
     });
+}
+
+void ImageDocument::clearUndoStack()
+{
+    while (!m_undos.empty()) {
+        delete m_undos.pop();
+    }
+
+    Q_EMIT canUndoChanged();
+}
+
+void ImageDocument::clearRedoStack()
+{
+    while (!m_redos.empty()) {
+        delete m_redos.pop();
+    }
+    m_redoImages.clear();
+
+    Q_EMIT canRedoChanged();
+}
+
+void ImageDocument::pushCommand(Command *command)
+{
+    m_undos.append(command);
+    clearRedoStack();
+    Q_EMIT canUndoChanged();
 }
 
 void ImageDocument::cancel()
@@ -45,9 +75,11 @@ void ImageDocument::cancel()
         delete command;
     }
 
+    clearRedoStack();
     resetValues();
     setEdited(false);
     Q_EMIT imageChanged();
+    Q_EMIT canUndoChanged();
 }
 
 QImage ImageDocument::image() const
@@ -69,20 +101,50 @@ void ImageDocument::undo()
     }
 
     const auto command = m_undos.pop();
+    m_redoImages.append(m_image);
     m_image = command->undo();
     m_originalImage = m_image;
-    delete command;
+    m_redos.append(command);
     Q_EMIT imageChanged();
+    Q_EMIT canUndoChanged();
+    Q_EMIT canRedoChanged();
     if (m_undos.empty()) {
         setEdited(false);
     }
+}
+
+void ImageDocument::redo()
+{
+    if (m_redos.empty())
+    {
+        qDebug() << "No more commands to redo";
+        return;
+    }
+
+    const auto command = m_redos.pop();
+    if (m_redoImages.empty())
+    {
+        qDebug() << "Redo image state missing";
+        m_undos.append(command);
+        Q_EMIT canUndoChanged();
+        Q_EMIT canRedoChanged();
+        return;
+    }
+
+    m_image = m_redoImages.pop();
+    m_originalImage = m_image;
+    m_undos.append(command);
+    setEdited(true);
+    Q_EMIT imageChanged();
+    Q_EMIT canUndoChanged();
+    Q_EMIT canRedoChanged();
 }
 
 void ImageDocument::crop(int x, int y, int width, int height)
 {
     const auto command = new CropCommand(QRect(x, y, width, height));
     m_image = command->redo(m_image);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -91,7 +153,7 @@ void ImageDocument::resize(int width, int height)
 {
     const auto command = new ResizeCommand(QSize(width, height));
     m_image = command->redo(m_image);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -101,7 +163,7 @@ void ImageDocument::mirror(bool horizontal, bool vertical)
     const auto command = new MirrorCommand(horizontal, vertical);
     m_image = command->redo(m_image);
 
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -112,7 +174,7 @@ void ImageDocument::rotate(int angle)
     transform.rotate(angle);
     const auto command = new RotateCommand(transform);
     m_image = command->redo(m_image);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -136,18 +198,32 @@ bool ImageDocument::save()
 {
     applyChanges();
 
-    if(m_originalImage.save(m_path.isLocalFile() ? m_path.toLocalFile() : m_path.toString()))
-    {
+    const bool saved = m_originalImage.save(m_path.isLocalFile() ? m_path.toLocalFile() : m_path.toString());
+    if (saved) {
         m_changesSaved = true;
         Q_EMIT changesSavedChanged();
+        clearUndoStack();
+        clearRedoStack();
+        setEdited(false);
     }
 
-    return false;
+    return saved;
 }
 
 bool ImageDocument::saveAs(const QUrl &location)
 {
-    return m_originalImage.save(location.isLocalFile() ? location.toLocalFile() : location.toString());
+    applyChanges();
+
+    const bool saved = m_originalImage.save(location.isLocalFile() ? location.toLocalFile() : location.toString());
+    if (saved) {
+        m_changesSaved = true;
+        Q_EMIT changesSavedChanged();
+        clearUndoStack();
+        clearRedoStack();
+        setEdited(false);
+    }
+
+    return saved;
 }
 
 void ImageDocument::adjustBrightness(int value)
@@ -172,7 +248,7 @@ void ImageDocument::adjustBrightness(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     Q_EMIT brightnessChanged();
     setEdited(true);
     Q_EMIT imageChanged();
@@ -200,7 +276,7 @@ void ImageDocument::adjustContrast(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT contrastChanged();
     Q_EMIT imageChanged();
@@ -231,7 +307,7 @@ void ImageDocument::adjustSaturation(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
     Q_EMIT saturationChanged();
@@ -263,7 +339,7 @@ void ImageDocument::adjustHue(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
     Q_EMIT hueChanged();
@@ -295,7 +371,7 @@ void ImageDocument::adjustGamma(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
     Q_EMIT gammaChanged();
@@ -327,7 +403,7 @@ void ImageDocument::adjustSharpness(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
     Q_EMIT sharpnessChanged();
@@ -359,7 +435,7 @@ void ImageDocument::adjustThreshold(int value)
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
     Q_EMIT thresholdChanged();
@@ -386,7 +462,7 @@ void ImageDocument::adjustGaussianBlur(int value)
 
     const auto command = new TransformCommand(m_image, transformation, undoCallback);
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
     Q_EMIT gaussianBlurChanged();
@@ -397,7 +473,7 @@ void ImageDocument::toGray()
     const auto command = new TransformCommand(m_image, &Trans::toGray, nullptr);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -407,7 +483,7 @@ void ImageDocument::toBW()
     const auto command = new TransformCommand(m_image, &Trans::toBlackAndWhite, nullptr);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -417,7 +493,7 @@ void ImageDocument::toSketch()
     const auto command = new TransformCommand(m_image, &Trans::sketch, nullptr);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -427,7 +503,7 @@ void ImageDocument::addVignette()
     const auto command = new TransformCommand(m_image, &Trans::vignette, nullptr);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -449,7 +525,7 @@ void ImageDocument::addBorder(int thickness, const QColor &color)
     const auto command = new TransformCommand(m_image, transformation, nullptr);
 
     m_image = command->redo(m_originalImage);
-    m_undos.append(command);
+    pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
 }
@@ -558,4 +634,14 @@ bool ImageDocument::changesApplied() const
 bool ImageDocument::changesSaved() const
 {
     return m_changesSaved;
+}
+
+bool ImageDocument::canUndo() const
+{
+    return !m_undos.isEmpty();
+}
+
+bool ImageDocument::canRedo() const
+{
+    return !m_redos.isEmpty();
 }
