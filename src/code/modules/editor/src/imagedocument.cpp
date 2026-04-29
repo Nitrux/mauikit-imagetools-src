@@ -606,19 +606,87 @@ void ImageDocument::toBW()
     Q_EMIT imageChanged();
 }
 
-void ImageDocument::toSketch()
+void ImageDocument::addVignette()
 {
-    const auto command = new TransformCommand(m_image, &Trans::sketch, nullptr);
+    adjustVignette(55);
+}
 
+void ImageDocument::applyColorPreset(const QString &preset)
+{
+    const auto presetKey = preset.trimmed().toLower();
+
+    const std::function<QImage(QImage &)> transformation = [presetKey](QImage &ref) -> QImage
+    {
+        QImage image = ref;
+
+        if (presetKey == QLatin1String("noir")) {
+            return Trans::toGray(image);
+        }
+
+        if (presetKey == QLatin1String("mono")) {
+            return Trans::toBlackAndWhite(image);
+        }
+
+        if (presetKey == QLatin1String("focus")) {
+            return Trans::adjustVignette(image, 55);
+        }
+
+        if (presetKey == QLatin1String("luna")) {
+            image = Trans::adjustExposure(image, 14);
+            image = Trans::adjustShadows(image, 24);
+            image = Trans::adjustSaturation(image, -18);
+            image = Trans::adjustTint(image, 10);
+            return Trans::adjustDefinition(image, 12);
+        }
+
+        if (presetKey == QLatin1String("valencia")) {
+            image = Trans::adjustWarmth(image, 26);
+            image = Trans::adjustSaturation(image, 12);
+            image = Trans::adjustHighlights(image, 10);
+            image = Trans::adjustContrast(image, -8);
+            return Trans::adjustVignette(image, 14);
+        }
+
+        if (presetKey == QLatin1String("juno")) {
+            image = Trans::adjustContrast(image, 16);
+            image = Trans::adjustVibrance(image, 28);
+            image = Trans::adjustWarmth(image, 8);
+            image = Trans::adjustBlackPoint(image, 12);
+            return Trans::adjustDefinition(image, 18);
+        }
+
+        if (presetKey == QLatin1String("gingham")) {
+            image = Trans::adjustBrilliance(image, 12);
+            image = Trans::adjustWarmth(image, 18);
+            image = Trans::adjustSaturation(image, -22);
+            image = Trans::adjustBlackPoint(image, -12);
+            return Trans::adjustVignette(image, -8);
+        }
+
+        if (presetKey == QLatin1String("lark")) {
+            image = Trans::adjustExposure(image, 10);
+            image = Trans::adjustVibrance(image, 16);
+            image = Trans::adjustWarmth(image, -12);
+            image = Trans::adjustHighlights(image, 12);
+            return Trans::adjustDefinition(image, 10);
+        }
+
+        if (presetKey == QLatin1String("aden")) {
+            image = Trans::adjustWarmth(image, 14);
+            image = Trans::adjustVibrance(image, -8);
+            image = Trans::adjustHighlights(image, 18);
+            image = Trans::adjustContrast(image, -16);
+            return Trans::adjustVignette(image, -6);
+        }
+
+        return image;
+    };
+
+    const auto command = new TransformCommand(m_image, transformation, nullptr);
     m_image = command->redo(m_originalImage);
     pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
-}
-
-void ImageDocument::addVignette()
-{
-    adjustVignette(55);
 }
 
 auto borderTrans(int thickness, const QColor &color, QImage &ref)

@@ -14,6 +14,17 @@ ColumnLayout
     property string currentSection : ""
     property string currentControl : ""
     property string activePreset : ""
+    readonly property var presetItems : [
+        { key: "noir", text: i18nd("mauikitimagetools", "Noir") },
+        { key: "mono", text: i18nd("mauikitimagetools", "Mono") },
+        { key: "focus", text: i18nd("mauikitimagetools", "Focus") },
+        { key: "luna", text: i18nd("mauikitimagetools", "Luna") },
+        { key: "valencia", text: i18nd("mauikitimagetools", "Valencia") },
+        { key: "juno", text: i18nd("mauikitimagetools", "Juno") },
+        { key: "gingham", text: i18nd("mauikitimagetools", "Gingham") },
+        { key: "lark", text: i18nd("mauikitimagetools", "Lark") },
+        { key: "aden", text: i18nd("mauikitimagetools", "Aden") }
+    ]
 
     function controlsForSection(section)
     {
@@ -229,24 +240,7 @@ ColumnLayout
 
         commitPendingAdjustment()
         activePreset = presetKey
-
-        switch (presetKey)
-        {
-        case "noir":
-            editor.toGray()
-            break
-        case "mono":
-            editor.toBW()
-            break
-        case "graphite":
-            editor.toSketch()
-            break
-        case "focus":
-            editor.addVignette()
-            break
-        }
-
-        editor.applyChanges()
+        editor.applyColorPreset(presetKey)
     }
 
     Maui.ToolBar
@@ -350,12 +344,7 @@ ColumnLayout
 
             Repeater
             {
-                model: [
-                    { key: "noir", text: i18nd("mauikitimagetools", "Noir") },
-                    { key: "mono", text: i18nd("mauikitimagetools", "Mono") },
-                    { key: "graphite", text: i18nd("mauikitimagetools", "Graphite") },
-                    { key: "focus", text: i18nd("mauikitimagetools", "Focus") }
-                ]
+                model: control.presetItems
 
                 Button
                 {

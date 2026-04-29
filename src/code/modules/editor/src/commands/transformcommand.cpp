@@ -105,22 +105,6 @@ QImage Trans::toGray(QImage &ref)
     return img;
 }
 
-QImage Trans::sketch(QImage &ref)
-{
-    auto m_imgMat = QtOcv::image2Mat(ref);
-
-    if(m_imgMat.channels() == 1)
-    {
-        cv::cvtColor(m_imgMat, m_imgMat, cv::COLOR_GRAY2BGR);
-    }
-
-    cv::Mat graySketch, colorSketch;
-    cv::pencilSketch(m_imgMat, graySketch, colorSketch, 60, 0.07f, 0.02f);
-
-    auto img = QtOcv::mat2Image(colorSketch);
-    return img;
-}
-
 QImage Trans::adjustGaussianBlur(QImage &ref, int value)
 {
     auto m_imgMat = QtOcv::image2Mat(ref);

@@ -25,7 +25,6 @@ private:
 namespace Trans
 {
 QImage toGray(QImage &ref);
-QImage sketch(QImage &ref);
 QImage adjustGaussianBlur(QImage &ref, int value);
 QImage adjustExposure(QImage &ref, int value);
 QImage adjustBrilliance(QImage &ref, int value);
