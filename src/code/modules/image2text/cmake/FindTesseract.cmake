@@ -5,6 +5,7 @@
 #  Tesseract_FOUND - system has Tesseract
 #  Tesseract_INCLUDE_DIR - the Tesseract include directory
 #  Tesseract_LIBRARIES - The libraries needed to use Tesseract
+#  Tesseract_EXECUTABLE - the tesseract OCR executable
 
 find_path(Tesseract_INCLUDE_DIRS tesseract/baseapi.h
    /usr/include
@@ -17,6 +18,13 @@ find_library(Tesseract_LIBRARIES NAMES tesseract libtesseract
    /usr/lib
    /usr/local/lib
    /opt/local/lib
+)
+
+find_program(Tesseract_EXECUTABLE NAMES tesseract
+   PATHS
+   /usr/bin
+   /usr/local/bin
+   /opt/local/bin
 )
 
 if(NOT Tesseract_VERSION AND DEFINED Tesseract_INCLUDE_DIRS)
@@ -54,6 +62,7 @@ find_package_handle_standard_args(Tesseract
     REQUIRED_VARS
         Tesseract_LIBRARIES
         Tesseract_INCLUDE_DIRS
+        Tesseract_EXECUTABLE
     VERSION_VAR
         Tesseract_VERSION
 )
@@ -66,7 +75,7 @@ if(Tesseract_FOUND AND NOT TARGET Tesseract::Tesseract)
     )
 endif()
 
-mark_as_advanced(Tesseract_LIBRARIES Tesseract_INCLUDE_DIRS Tesseract_VERSION)
+mark_as_advanced(Tesseract_LIBRARIES Tesseract_INCLUDE_DIRS Tesseract_EXECUTABLE Tesseract_VERSION)
 
 include(FeatureSummary)
 set_package_properties(Tesseract PROPERTIES

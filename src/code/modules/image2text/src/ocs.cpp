@@ -25,11 +25,16 @@ namespace
 std::string requestedLanguages(const OCRLanguageModel *languages)
 {
     if (!languages) {
-        return {};
+        return std::string{"eng"};
     }
 
     const auto configuredLanguages = languages->getLanguagesString();
-    return configuredLanguages.empty() ? std::string{} : configuredLanguages;
+    if (!configuredLanguages.empty()) {
+        return configuredLanguages;
+    }
+
+    qWarning() << "OCR language list was empty, falling back to English";
+    return std::string{"eng"};
 }
 
 void warnNoLanguagesAvailable()
@@ -558,13 +563,18 @@ void OCS::classBegin()
 void OCS::componentComplete()
 {
     qDebug() << "OCS CALSS COMPLETED IN QML";
-    connect(this, &OCS::filePathChanged, [this](QString)
-            {
-                if(m_autoRead)
-                {
-                    getTextAsync();
-                }
-            });
+    const auto scheduleAutoRead = [this]()
+    {
+        if (m_autoRead) {
+            getTextAsync();
+        }
+    };
+
+    connect(this, &OCS::filePathChanged, this, [scheduleAutoRead](QString) { scheduleAutoRead(); });
+    connect(this, &OCS::boxesTypeChanged, this, scheduleAutoRead);
+    connect(this, &OCS::confidenceThresholdChanged, this, scheduleAutoRead);
+    connect(this, &OCS::preprocessImageChanged, this, scheduleAutoRead);
+    connect(this, &OCS::pageSegModeChanged, this, scheduleAutoRead);
     getTextAsync();
 }
 
