@@ -10,48 +10,78 @@ ColumnLayout
 
     spacing: 0
     property bool committingRotation : false
+    property string currentSection : ""
+    property int cropAspectRatio : 0
 
     property alias rotationSlider: _freeRotationSlider
-    // property alias rotationButton : _freeRotationButton
-    // property alias cropButton : _cropButton
+    readonly property bool cropMode : currentSection === "crop"
 
+    signal cropRequested()
+    signal cropResetRequested()
+    signal cropAspectRatioSelected(int aspectRatio)
 
     property Item bar : Row
     {
         Layout.alignment: Qt.AlignHCenter
         spacing: Maui.Style.defaultSpacing
 
-        ToolButton
+        Button
         {
-            icon.name: "object-flip-vertical"
-            text: i18nc("@action:button Mirror an image vertically", "Flip");
-            autoExclusive: true
-            onClicked: imageDoc.mirror(false, true);
+            highlighted: control.currentSection === "transform"
+            text: i18nd("mauikitimagetools", "Transform")
+            onClicked: control.currentSection = control.currentSection === "transform" ? "" : "transform"
         }
 
-        ToolButton
+        Button
         {
-            icon.name: "object-flip-horizontal"
-            text: i18nc("@action:button Mirror an image horizontally", "Mirror");
-            checkable: true
-            autoExclusive: true
-            onClicked: imageDoc.mirror(true, false);
+            highlighted: control.currentSection === "crop"
+            text: i18nd("mauikitimagetools", "Crop")
+            onClicked: control.currentSection = control.currentSection === "crop" ? "" : "crop"
         }
-        ToolButton
+    }
+
+    Maui.ToolBar
+    {
+        id: _transformOperations
+        Layout.fillWidth: true
+        visible: control.currentSection === "transform"
+        middleContent: Row
         {
-            icon.name: "object-rotate-left"
-            //                    display: ToolButton.IconOnly
-            text: i18nc("@action:button Rotate an image 90°", "Rotate 90°");
-            onClicked: imageDoc.rotate(-90)
+            Layout.alignment: Qt.AlignHCenter
+            spacing: Maui.Style.defaultSpacing
+
+            ToolButton
+            {
+                icon.name: "object-flip-vertical"
+                text: i18nc("@action:button Mirror an image vertically", "Flip")
+                onClicked: imageDoc.mirror(false, true)
+            }
+
+            ToolButton
+            {
+                icon.name: "object-flip-horizontal"
+                text: i18nc("@action:button Mirror an image horizontally", "Mirror")
+                onClicked: imageDoc.mirror(true, false)
+            }
+
+            ToolButton
+            {
+                icon.name: "object-rotate-left"
+                text: i18nc("@action:button Rotate an image 90°", "Rotate 90°")
+                onClicked: imageDoc.rotate(-90)
+            }
+        }
+        background: Rectangle
+        {
+            color: Maui.Theme.backgroundColor
         }
     }
 
     Maui.ToolBar
     {
         id: _freeRotation
-
-        // visible: _freeRotationButton.checked
         position: ToolBar.Footer
+        visible: control.currentSection === "transform"
         background: Rectangle
         {
             color: Maui.Theme.backgroundColor
@@ -89,78 +119,45 @@ ColumnLayout
         }
     }
 
-    // Maui.ToolBar
-    // {
-    //     position: ToolBar.Footer
-    //     Layout.fillWidth: true
-    //     background: Rectangle
-    //     {
-    //         color: Maui.Theme.backgroundColor
-    //     }
-    //     middleContent: Maui.ToolActions
-    //     {
-    //         autoExclusive: true
-    //         Layout.alignment: Qt.AlignHCenter
-    //         Action
-    //         {
-    //             id: _cropButton
-    //             checkable: true
-    //             icon.name:  "transform-crop"
-    //             text:  i18nc("@action:button Crop an image", "Crop");
-    //         }
+    Maui.ToolBar
+    {
+        id: _cropOptions
+        Layout.fillWidth: true
+        visible: control.currentSection === "crop"
+        middleContent: Row
+        {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: Maui.Style.defaultSpacing
 
-    //         Action
-    //         {
-    //             id: _freeRotationButton
-    //             icon.name: "transform-rotate"
-    //             checkable: true
-    //             text: i18nc("@action:button Rotate an image", "Rotate");
-    //         }
-    //     }
+            Button
+            {
+                highlighted: control.cropAspectRatio === 0
+                text: i18nd("mauikitimagetools", "Free")
+                onClicked: control.cropAspectRatioSelected(0)
+            }
 
-    //     leftContent: ToolButton
-    //     {
-    //         //                    text: i18nd("mauikitimagetools","Accept")
-    //         visible: _freeRotationButton.checked || _cropButton.checked
+            Button
+            {
+                highlighted: control.cropAspectRatio === 1
+                text: i18nd("mauikitimagetools", "Square")
+                onClicked: control.cropAspectRatioSelected(1)
+            }
 
-    //         icon.name: "checkmark"
-    //         onClicked:
-    //         {
-    //             if(_freeRotationButton.checked)
-    //             {
-    //                 const value = _freeRotationSlider.value
-    //                 _freeRotationSlider.value = 0
+            Button
+            {
+                text: i18nd("mauikitimagetools", "Reset")
+                onClicked: control.cropResetRequested()
+            }
 
-    //                 console.log("Rotate >> " , value)
-    //                 imageDoc.rotate(value);
-    //             }
-
-    //             // if(_cropButton.checked)
-    //             // {
-    //             //     crop()
-    //             // }
-    //         }
-    //     }
-
-    //     rightContent:  ToolButton
-    //     {
-    //         //                    text: i18nd("mauikitimagetools","Cancel")
-    //         visible: _freeRotationButton.checked || _cropButton.checked
-    //         icon.name: "dialog-cancel"
-    //         onClicked:
-    //         {
-    //             if(_freeRotationButton.checked)
-    //             {
-    //                 _freeRotationSlider.value = 0
-    //                 _freeRotationButton.checked = false
-
-    //             }
-
-    //             if(_cropButton.checked)
-    //             {
-    //                 _cropButton.checked = false
-    //             }
-    //         }
-    //     }
-    // }
+            Button
+            {
+                text: i18nd("mauikitimagetools", "Apply Crop")
+                onClicked: control.cropRequested()
+            }
+        }
+        background: Rectangle
+        {
+            color: Maui.Theme.backgroundColor
+        }
+    }
 }

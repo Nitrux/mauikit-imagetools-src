@@ -46,16 +46,52 @@ Item {
             return root.aspectRatio === SelectionTool.AspectRatio.Square;
         }
 
+        function sameRect(rectA, rectB): bool {
+            return rectA.x === rectB.x
+                && rectA.y === rectB.y
+                && rectA.width === rectB.width
+                && rectA.height === rectB.height;
+        }
+
+        function constrainRect(rect) {
+            if (root.width <= 0 || root.height <= 0) {
+                return Qt.rect(0, 0, 0, 0);
+            }
+
+            const x = Math.max(0, Math.min(rect.x, root.width - 1));
+            const y = Math.max(0, Math.min(rect.y, root.height - 1));
+            const width = Math.max(1, Math.min(rect.width, root.width - x));
+            const height = Math.max(1, Math.min(rect.height, root.height - y));
+
+            return Qt.rect(x, y, width, height);
+        }
+
+        function constrainPendingRect(): void {
+            const constrainedRect = _private.constrainRect(_private.pendingRect);
+
+            if (!_private.sameRect(_private.pendingRect, constrainedRect)) {
+                _private.pendingRect = constrainedRect;
+            }
+        }
+
         function updateHandles(): void {
             if (_private.applyingPendingRect) {
                 return;
             }
 
+            const constrainedRect = _private.constrainRect(_private.pendingRect);
+
+            if (!_private.sameRect(_private.pendingRect, constrainedRect)) {
+                _private.updatingPendingRect = true;
+                _private.pendingRect = constrainedRect;
+                _private.updatingPendingRect = false;
+            }
+
             _private.applyingPendingRect = true;
-            selectionArea.x = _private.pendingRect.x;
-            selectionArea.y = _private.pendingRect.y;
-            selectionArea.width = _private.pendingRect.width;
-            selectionArea.height = _private.pendingRect.height;
+            selectionArea.x = constrainedRect.x;
+            selectionArea.y = constrainedRect.y;
+            selectionArea.width = constrainedRect.width;
+            selectionArea.height = constrainedRect.height;
             _private.applyingPendingRect = false;
         }
 
@@ -97,28 +133,34 @@ Item {
 
                     switch (_private.pressedHandle) {
                     case handleTopLeft:
-                        newRect = Qt.rect(oldRect.right - wide, oldRect.bottom - wide, wide, wide);
+                        newRect = Qt.rect(oldRect.x + oldRect.width - wide, oldRect.y + oldRect.height - wide, wide, wide);
                         patchValues(flagX | flagY | flagWidth | flagHeight, offset());
                         break;
                     case handleTopRight:
-                        newRect = Qt.rect(oldRect.left, oldRect.bottom - wide, wide, wide);
+                        newRect = Qt.rect(oldRect.x, oldRect.y + oldRect.height - wide, wide, wide);
                         patchValues(flagY | flagWidth | flagHeight, offset());
                         break;
                     case handleBottomRight:
-                        newRect = Qt.rect(oldRect.left, oldRect.top, wide, wide);
+                        newRect = Qt.rect(oldRect.x, oldRect.y, wide, wide);
                         patchValues(flagWidth | flagHeight, offset());
                         break;
                     case handleBottomLeft:
-                        newRect = Qt.rect(oldRect.right - wide, oldRect.top, wide, wide);
+                        newRect = Qt.rect(oldRect.x + oldRect.width - wide, oldRect.y, wide, wide);
                         patchValues(flagX | flagWidth | flagHeight, offset());
                         break;
                     }
 
-                    if (_private.pendingRect !== newRect) {
+                    newRect = _private.constrainRect(newRect);
+
+                    if (!_private.sameRect(_private.pendingRect, newRect)) {
                         _private.pendingRect = newRect;
                     }
                 } else {
-                    _private.pendingRect = _private.currentRect;
+                    const newRect = _private.constrainRect(_private.currentRect);
+
+                    if (!_private.sameRect(_private.pendingRect, newRect)) {
+                        _private.pendingRect = newRect;
+                    }
                 }
 
                 _private.updatingPendingRect = false;
@@ -304,17 +346,6 @@ Item {
             restoreMode: Binding.RestoreBindingOrValue
         }
     }
-    // TODO: maybe scale proportions instead of just limiting size
-    onWidthChanged: if (selectionArea.x + selectionArea.width > root.width) {
-        selectionArea.width = Math.max(root.width - selectionArea.x, handleTopLeft.implicitWidth/2)
-        if (selectionArea.x > root.width) {
-            selectionArea.x = Math.max(root.width - selectionArea.width, 0)
-        }
-    }
-    onHeightChanged: if (selectionArea.y + selectionArea.height > root.height) {
-        selectionArea.height = Math.max(root.height - selectionArea.y, handleTopLeft.implicitHeight/2)
-        if (selectionArea.y > root.height) {
-            selectionArea.y = Math.max(root.height - selectionArea.height, 0)
-        }
-    }
+    onWidthChanged: _private.constrainPendingRect()
+    onHeightChanged: _private.constrainPendingRect()
 }

@@ -70,6 +70,8 @@ Maui.Page
     readonly property alias editor : imageDoc
 
     property Item middleContentBar : _private.currentAction.bar
+    property int cropAspectRatio : 0
+    readonly property bool cropMode : _private.currentAction == transformAction && _transBar.cropMode
 
     signal saved()
     signal savedAs(string url)
@@ -140,12 +142,70 @@ Maui.Page
             control.saved()
     }
 
+    function setCropSelectionRect(x, y, width, height)
+    {
+        if (!cropSelection)
+            return
+
+        cropSelection.selectionX = x
+        cropSelection.selectionY = y
+        cropSelection.selectionWidth = Math.max(1, width)
+        cropSelection.selectionHeight = Math.max(1, height)
+    }
+
+    function resetCropSelection()
+    {
+        if (!cropFrame || cropFrame.width <= 0 || cropFrame.height <= 0)
+            return
+
+        if (control.cropAspectRatio === 1)
+        {
+            const side = Math.min(cropFrame.width, cropFrame.height)
+            control.setCropSelectionRect((cropFrame.width - side) / 2, (cropFrame.height - side) / 2, side, side)
+            return
+        }
+
+        control.setCropSelectionRect(0, 0, cropFrame.width, cropFrame.height)
+    }
+
+    function applyCropSelection()
+    {
+        if (!cropSelection || !cropSelection.selectionArea || !control.cropMode || cropFrame.width <= 0 || cropFrame.height <= 0 || editImage.nativeWidth <= 0 || editImage.nativeHeight <= 0)
+            return
+
+        const selectionRect = cropSelection.selectionArea
+        const cropX = Math.round((selectionRect.x / cropFrame.width) * editImage.nativeWidth)
+        const cropY = Math.round((selectionRect.y / cropFrame.height) * editImage.nativeHeight)
+        const cropWidth = Math.round((selectionRect.width / cropFrame.width) * editImage.nativeWidth)
+        const cropHeight = Math.round((selectionRect.height / cropFrame.height) * editImage.nativeHeight)
+
+        const normalizedX = Math.max(0, Math.min(editImage.nativeWidth - 1, cropX))
+        const normalizedY = Math.max(0, Math.min(editImage.nativeHeight - 1, cropY))
+        const normalizedWidth = Math.max(1, Math.min(editImage.nativeWidth - normalizedX, cropWidth))
+        const normalizedHeight = Math.max(1, Math.min(editImage.nativeHeight - normalizedY, cropHeight))
+
+        if (normalizedX === 0
+                && normalizedY === 0
+                && normalizedWidth === editImage.nativeWidth
+                && normalizedHeight === editImage.nativeHeight)
+            return
+
+        imageDoc.crop(normalizedX, normalizedY, normalizedWidth, normalizedHeight)
+        control.resetCropSelection()
+    }
+
     function discard()
     {
         if (imageDoc.edited)
             imageDoc.cancel()
 
         control.canceled()
+    }
+
+    onCropModeChanged:
+    {
+        if (cropMode)
+            control.resetCropSelection()
     }
 
     readonly property Action transformAction : EditorAction
@@ -326,14 +386,30 @@ Maui.Page
 
     }
 
+    Connections
+    {
+        target: imageDoc
+
+        function onImageChanged()
+        {
+            control.resetCropSelection()
+        }
+    }
+
     Canvas
     {
         visible: transformAction.checked
         opacity: 0.15
-        anchors.fill : parent
-        property int wgrid: control.width / 20
+        z: 1
+        anchors.centerIn: editImage
+        width: editImage.paintedWidth
+        height: editImage.paintedHeight
+        rotation: editImage.rotation
+        transformOrigin: Item.Center
+        property real wgrid: Math.max(24, width / 12)
         onPaint: {
             var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
             ctx.lineWidth = 0.5
             ctx.strokeStyle = Maui.Theme.textColor
             ctx.beginPath()
@@ -353,6 +429,54 @@ Maui.Page
         }
     }
 
+    Item
+    {
+        id: cropFrame
+        visible: control.cropMode && editImage.paintedWidth > 0 && editImage.paintedHeight > 0
+        z: 2
+        anchors.centerIn: editImage
+        width: editImage.paintedWidth
+        height: editImage.paintedHeight
+
+        onWidthChanged:
+        {
+            if (control.cropMode)
+                control.resetCropSelection()
+        }
+
+        onHeightChanged:
+        {
+            if (control.cropMode)
+                control.resetCropSelection()
+        }
+
+        Private.CropBackground
+        {
+            anchors.fill: parent
+            insideX: cropSelection.selectionArea.x
+            insideY: cropSelection.selectionArea.y
+            insideWidth: cropSelection.selectionArea.width
+            insideHeight: cropSelection.selectionArea.height
+        }
+
+        Private.SelectionBackground
+        {
+            z: 1
+            x: cropSelection.selectionArea.x
+            y: cropSelection.selectionArea.y
+            width: cropSelection.selectionArea.width
+            height: cropSelection.selectionArea.height
+        }
+
+        Private.SelectionTool
+        {
+            id: cropSelection
+            z: 2
+            anchors.fill: parent
+            aspectRatio: control.cropAspectRatio
+        }
+    }
+
     // footBar.visible: false
     footerColumn: [
 
@@ -361,6 +485,14 @@ Maui.Page
             id: _transBar
             visible: _private.currentAction == transformAction && control.ready
             width: parent ? parent.width : 0
+            cropAspectRatio: control.cropAspectRatio
+            onCropRequested: control.applyCropSelection()
+            onCropResetRequested: control.resetCropSelection()
+            onCropAspectRatioSelected: (aspectRatio) =>
+                                       {
+                                           control.cropAspectRatio = aspectRatio
+                                           control.resetCropSelection()
+                                       }
         },
 
         Private.ColourBar
