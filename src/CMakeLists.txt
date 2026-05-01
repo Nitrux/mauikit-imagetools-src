@@ -122,8 +122,8 @@ ecm_finalize_qml_module(MauiKitImageTools${MAUI_MAJOR_VERSION} DESTINATION ${KDE
 
 generate_export_header(MauiKitImageTools${MAUI_MAJOR_VERSION} BASE_NAME ImageTools)
 set_target_properties(MauiKitImageTools${MAUI_MAJOR_VERSION} PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
+    VERSION ${MAUIKIT_SO_VERSION}
+    SOVERSION ${MAUIKIT_SO_VERSION}
     EXPORT_NAME "ImageTools")
 
 target_include_directories(MauiKitImageTools${MAUI_MAJOR_VERSION}
@@ -144,4 +144,3 @@ if(ANDROID)
 else()
     install (FILES data/cities.db DESTINATION ${KDE_INSTALL_DATADIR}/org/mauikit/imagetools)
 endif()
-
