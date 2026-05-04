@@ -4,11 +4,9 @@
 
 remove_definitions(-DQT_NO_CAST_FROM_ASCII -DQT_STRICT_ITERATORS -DQT_NO_CAST_FROM_BYTEARRAY)
 
-if(NOT ANDROID)
-    add_subdirectory(code/modules/opencv)
-    add_subdirectory(code/modules/image2text)
-    add_subdirectory(code/modules/editor)
-endif()
+add_subdirectory(code/modules/opencv)
+add_subdirectory(code/modules/image2text)
+add_subdirectory(code/modules/editor)
 
 add_library(MauiKitImageTools${MAUI_MAJOR_VERSION} SHARED)
 
@@ -81,20 +79,16 @@ target_sources(MauiKitImageTools${MAUI_MAJOR_VERSION}plugin
 
 add_library(MauiKit${MAUI_MAJOR_VERSION}::ImageTools ALIAS MauiKitImageTools${MAUI_MAJOR_VERSION})
 
-if(ANDROID)
+target_link_libraries(MauiKitImageTools${MAUI_MAJOR_VERSION}
+    PRIVATE
+    Image2Text)
 
-else()
-    target_link_libraries(MauiKitImageTools${MAUI_MAJOR_VERSION}
-        PRIVATE
-        Image2Text)
+target_link_libraries(MauiKitImageTools${MAUI_MAJOR_VERSION}plugin
+    PRIVATE
+    Image2Text)
 
-    target_link_libraries(MauiKitImageTools${MAUI_MAJOR_VERSION}plugin
-        PRIVATE
-        Image2Text)
-
-    ecm_target_qml_sources(MauiKitImageTools${MAUI_MAJOR_VERSION} PATH image2text SOURCES
-        controls.${QT_MAJOR_VERSION}/image2text/OCRPage.qml)
-endif()
+ecm_target_qml_sources(MauiKitImageTools${MAUI_MAJOR_VERSION} PATH image2text SOURCES
+    controls.${QT_MAJOR_VERSION}/image2text/OCRPage.qml)
 
 target_link_libraries(MauiKitImageTools${MAUI_MAJOR_VERSION}
     PRIVATE
@@ -139,8 +133,4 @@ install(FILES
     DESTINATION ${KDE_INSTALL_INCLUDEDIR}/MauiKit${MAUI_MAJOR_VERSION}/ImageTools
     COMPONENT Devel)
 
-if(ANDROID)
-    install (FILES data/cities.db DESTINATION ${KDE_INSTALL_QMLDIR}/org/mauikit/imagetools)
-else()
-    install (FILES data/cities.db DESTINATION ${KDE_INSTALL_DATADIR}/org/mauikit/imagetools)
-endif()
+install(FILES data/cities.db DESTINATION ${KDE_INSTALL_DATADIR}/org/mauikit/imagetools)
