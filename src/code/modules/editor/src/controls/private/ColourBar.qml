@@ -236,9 +236,14 @@ ColumnLayout
     function applyPreset(presetKey)
     {
         if (currentMode !== "presets")
+        {
+            commitPendingAdjustment()
             currentMode = "presets"
+        }
 
-        commitPendingAdjustment()
+        if (activePreset === presetKey)
+            return
+
         activePreset = presetKey
         editor.applyColorPreset(presetKey)
     }
