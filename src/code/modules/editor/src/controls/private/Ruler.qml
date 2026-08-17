@@ -101,7 +101,6 @@ Slider
             height: 32
             width: height
             color: Maui.Theme.textColor
-            isMask: true
             source: "qrc:/assets/arrow-up.svg"
         }
 
