@@ -6,13 +6,11 @@
 
 #include "imagedocument.h"
 
-#include "commands/cropcommand.h"
 #include "commands/mirrorcommand.h"
 #include "commands/resizecommand.h"
 #include "commands/rotatecommand.h"
 #include "commands/transformcommand.h"
 #include <QImageReader>
-#include <QDebug>
 
 ImageDocument::ImageDocument(QObject *parent)
     : QObject(parent)
@@ -188,7 +186,6 @@ void ImageDocument::undo()
 {
     if(m_undos.empty())
     {
-        qDebug() << "No more commands to undo";
         return;
     }
 
@@ -210,14 +207,12 @@ void ImageDocument::redo()
 {
     if (m_redos.empty())
     {
-        qDebug() << "No more commands to redo";
         return;
     }
 
     const auto command = m_redos.pop();
     if (m_redoImages.empty())
     {
-        qDebug() << "Redo image state missing";
         m_undos.append(command);
         Q_EMIT canUndoChanged();
         Q_EMIT canRedoChanged();
@@ -232,15 +227,6 @@ void ImageDocument::redo()
     Q_EMIT imageChanged();
     Q_EMIT canUndoChanged();
     Q_EMIT canRedoChanged();
-}
-
-void ImageDocument::crop(int x, int y, int width, int height)
-{
-    const auto command = new CropCommand(QRect(x, y, width, height));
-    m_image = command->redo(m_image);
-    pushCommand(command);
-    setEdited(true);
-    Q_EMIT imageChanged();
 }
 
 void ImageDocument::resize(int width, int height)
@@ -429,7 +415,6 @@ void ImageDocument::adjustTint(int value)
 
 void ImageDocument::adjustHue(int value)
 {
-    qDebug() << "adjust HUE DOCUMENT" << value;
     if(value == m_hue)
         return;
 
@@ -461,7 +446,6 @@ void ImageDocument::adjustHue(int value)
 
 void ImageDocument::adjustGamma(int value)
 {
-    qDebug() << "adjust GAMMA DOCUMENT" << value;
     // if(m_image.isGrayscale())
     //     return;
 
@@ -529,7 +513,6 @@ void ImageDocument::adjustVignette(int value)
 
 void ImageDocument::adjustThreshold(int value)
 {
-    qDebug() << "adjust threshold DOCUMENT" << value;
     // if(m_image.isGrayscale())
     //     return;
 
@@ -568,7 +551,6 @@ void ImageDocument::adjustGaussianBlur(int value)
     m_gaussianBlur = value;
     auto transformation = [val = m_gaussianBlur](QImage &ref) -> QImage
     {
-        qDebug() << "SXetting gaussian blur" << val;
         return Trans::adjustGaussianBlur(ref, val);
     };
 
@@ -696,10 +678,8 @@ auto borderTrans(int thickness, const QColor &color, QImage &ref)
 
 void ImageDocument::addBorder(int thickness, const QColor &color)
 {
-    qDebug() << "SXetting add border blur" << thickness << color << color.red() << color.green()<<color.blue();
     auto transformation = [&](QImage &ref) -> QImage
     {
-        qDebug() << "SXetting add border blur2" << thickness << color;
         return Trans::addBorder(ref, thickness, color);
     };
 

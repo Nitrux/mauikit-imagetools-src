@@ -90,7 +90,6 @@ OCS::OCS(QObject *parent) : QObject(parent)
 
 OCS::~OCS()
 {
-    qDebug() << "OCS object has been deleted" << this;
     m_tesseract->End();
     delete m_tesseract;
     m_tesseract = nullptr;
@@ -127,7 +126,6 @@ void OCS::setBoxesType(OCS::BoxesType types)
 
 
     m_boxesTypes = types;
-    qDebug() << "Setting the boxes types" << m_boxesTypes << types;
 
     Q_EMIT boxesTypeChanged();
 }
@@ -147,8 +145,6 @@ int OCS::wordBoxAt(const QPoint point)
     for(const auto &box : m_wordBoxes)
     {
         QRect rect = box["rect"].toRect();
-
-        qDebug() << "Rect: " << rect << "Point: " << point << rect.contains(point, true);
 
         if(rect.contains(point))
             return i;
@@ -258,7 +254,6 @@ void OCS::getTextAsync()
     const auto fileUrl = QUrl::fromUserInput(m_filePath);
     if(!fileUrl.isLocalFile())
     {
-        qDebug() << "URL is not local :: OCR";
         m_ready = true;
         Q_EMIT readyChanged();
         return;
@@ -336,7 +331,6 @@ void OCS::getTextAsync()
             tesseract::ResultIterator* ri = api->GetIterator();
             if (ri != 0)
             {
-                qDebug() << "Getting text for level" << level;
                 do
                 {
                     const char* word = ri->GetUTF8Text(level);
@@ -380,12 +374,9 @@ void OCS::getTextAsync()
         delete api;
         return Res{{Word, wordBoxes}, {Line, lineBoxes}, {Paragraph, paragraphBoxes}};
     };    
-    
-    qDebug() << "GEtting text for boxes " << m_boxesTypes << m_boxesTypes.testFlag(Word);
 
     if(OCRCache.contains(m_filePath))
     {
-        qDebug() << "OCR retrieved from cached";
         auto res =  OCRCache[m_filePath];
         m_wordBoxes = res[Word];
         m_lineBoxes = res[Line];
@@ -406,7 +397,6 @@ void OCS::getTextAsync()
 
                     if(!this->m_tesseract)
                     {
-                        qDebug() << "Results from oCR operation discarded OCS object has been deleted";
                     }else
                     {
                         m_wordBoxes = res[Word];
@@ -443,7 +433,6 @@ QString OCS::getText()
     QUrl url(QUrl::fromUserInput(m_filePath));
     if(!url.isLocalFile())
     {
-        qDebug() << "URL is not local :: OCR";
         return "Error!";
     }
 
@@ -454,7 +443,6 @@ QString OCS::getText()
 
     if (!initTesseract(m_tesseract, languages))
     {
-        qDebug() << "Failed tesseract OCR init";
         return "Error!";
     }
 
@@ -562,7 +550,6 @@ void OCS::classBegin()
 
 void OCS::componentComplete()
 {
-    qDebug() << "OCS CALSS COMPLETED IN QML";
     const auto scheduleAutoRead = [this]()
     {
         if (m_autoRead) {

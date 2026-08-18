@@ -183,9 +183,7 @@ QImage Trans::adjustContrast(QImage &ref, int value)
     auto m_imgMat = QtOcv::image2Mat(ref);
     auto newMat = PreprocessImage::adjustContrast(m_imgMat, value);
     auto img = QtOcv::mat2Image(newMat); //remember to delete
-    // qDebug() << "IS PROCESSED IMAGE VALIUD" << img.isNull() <<  img.format();
 
-    qDebug() << m_imgMat.rows << m_imgMat.cols << m_imgMat.step << m_imgMat.empty();
 
     return img;
 }
@@ -324,14 +322,11 @@ QImage Trans::adjustHue(QImage &ref, int value)
         value = 180;
     else if(value < 0)
         value = 0;
-    qDebug() << "Creating command for hue" << value;
 
     auto m_imgMat = QtOcv::image2Mat(ref);
     auto newMat = PreprocessImage::hue(m_imgMat, value);
     auto img = QtOcv::mat2Image(newMat); //remember to delete
-    // qDebug() << "IS PROCESSED IMAGE VALIUD" << img.isNull() <<  img.format();
 
-    qDebug() << m_imgMat.rows << m_imgMat.cols << m_imgMat.step << m_imgMat.empty();
 
     return img;
 }
@@ -342,18 +337,15 @@ QImage Trans::adjustGamma(QImage &ref, int value)
     auto newMat = PreprocessImage::gamma(m_imgMat, value);
     auto img = QtOcv::mat2Image(newMat);
 
-    qDebug() << m_imgMat.rows << m_imgMat.cols << m_imgMat.step << m_imgMat.empty();
     return img;
 }
 
 QImage Trans::adjustSharpness(QImage &ref, int value)
 {
-    qDebug() << "Creating command for sharpness" << value;
 
     auto m_imgMat = QtOcv::image2Mat(ref);
     auto newMat = PreprocessImage::sharpness(m_imgMat, value);
     auto img = QtOcv::mat2Image(newMat);
-    qDebug() << m_imgMat.rows << m_imgMat.cols << m_imgMat.step << m_imgMat.empty();
     return img;
 }
 
@@ -401,7 +393,6 @@ QImage Trans::adjustThreshold(QImage &ref, int value)
     auto m_imgMat = QtOcv::image2Mat(ref);
     auto newMat = PreprocessImage::manualThreshold(m_imgMat, value);
     auto img = QtOcv::mat2Image(newMat);
-    qDebug() << m_imgMat.rows << m_imgMat.cols << m_imgMat.step << m_imgMat.empty();
     return img;
 }
 

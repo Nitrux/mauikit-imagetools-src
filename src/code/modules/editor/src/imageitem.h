@@ -28,8 +28,7 @@ class ImageItem : public QQuickPaintedItem
 public:
     enum FillMode {
         Stretch, // the image is scaled to fit
-        PreserveAspectFit, // the image is scaled uniformly to fit without cropping
-        PreserveAspectCrop, // the image is scaled uniformly to fill, cropping if necessary
+        PreserveAspectFit, // the image is scaled uniformly inside the bounds
         Tile, // the image is duplicated horizontally and vertically
         TileVertically, // the image is stretched horizontally and tiled vertically
         TileHorizontally // the image is stretched vertically and tiled horizontally

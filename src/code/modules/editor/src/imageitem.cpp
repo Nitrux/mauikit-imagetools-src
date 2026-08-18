@@ -155,14 +155,6 @@ void ImageItem::updatePaintedRect()
         destRect.moveCenter(boundingRect().center().toPoint());
         break;
     }
-    case PreserveAspectCrop: {
-        QSize scaled = m_image.size();
-
-        scaled.scale(boundingRect().size().toSize(), Qt::KeepAspectRatioByExpanding);
-        destRect = QRect(QPoint(0, 0), scaled);
-        destRect.moveCenter(boundingRect().center().toPoint());
-        break;
-    }
     case TileVertically: {
         destRect = boundingRect().toRect();
         destRect.setWidth(destRect.width() / (width() / (qreal)m_image.width()));

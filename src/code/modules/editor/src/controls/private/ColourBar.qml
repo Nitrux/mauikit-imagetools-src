@@ -14,6 +14,7 @@ ColumnLayout
     property string currentSection : ""
     property string currentControl : ""
     property string activePreset : ""
+    readonly property int spinBoxWidth: Maui.Style.units.gridUnit * 7
     readonly property var presetItems : [
         { key: "noir", text: i18nd("mauikitimagetools", "Noir") },
         { key: "mono", text: i18nd("mauikitimagetools", "Mono") },
@@ -282,53 +283,47 @@ ColumnLayout
 
     Maui.ToolBar
     {
-        id: _controlsToolBar
+        id: _adjustmentsToolBar
         Layout.fillWidth: true
         visible: control.currentMode === "manual" && control.currentSection.length > 0
-        middleContent: Row
+        middleContent: GridLayout
         {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: Maui.Style.defaultSpacing
+            Layout.fillWidth: true
+            columns: 4
+            rowSpacing: Maui.Style.defaultSpacing
+            columnSpacing: Maui.Style.defaultSpacing
 
             Repeater
             {
                 model: control.controlsForSection(control.currentSection)
 
-                Button
+                ColumnLayout
                 {
-                    highlighted: control.currentControl === modelData.key
-                    text: modelData.text
-                    onClicked: control.selectControl(modelData.key)
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: control.spinBoxWidth
+                    spacing: Maui.Style.space.small
+
+                    Label
+                    {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: modelData.text
+                    }
+
+                    SpinBox
+                    {
+                        id: adjustmentSpinBox
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.maximumWidth: control.spinBoxWidth
+                        Layout.preferredWidth: control.spinBoxWidth
+                        from: modelData.from
+                        to: modelData.to
+                        stepSize: modelData.stepSize
+                        value: control.adjustmentValue(modelData.key)
+
+                        onValueModified: control.setAdjustmentValue(modelData.key, value)
+                    }
                 }
-            }
-        }
-        background: Rectangle
-        {
-            color: Maui.Theme.backgroundColor
-        }
-    }
-
-    Maui.ToolBar
-    {
-        id: _sliderToolBar
-        Layout.fillWidth: true
-        visible: control.currentMode === "manual" && control.currentControl.length > 0
-        middleContent: Ruler
-        {
-            Layout.fillWidth: true
-
-            readonly property var spec: control.currentControlSpec()
-
-            enabled: !!spec
-            from: spec ? spec.from : 0
-            to: spec ? spec.to : 0
-            stepSize: spec ? spec.stepSize : 1
-            value: spec ? control.adjustmentValue(spec.key) : 0
-
-            onMoved:
-            {
-                if (spec)
-                    control.setAdjustmentValue(spec.key, value)
             }
         }
         background: Rectangle

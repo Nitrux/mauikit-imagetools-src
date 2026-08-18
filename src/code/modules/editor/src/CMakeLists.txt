@@ -7,26 +7,14 @@ ecm_add_qml_module(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION}
     DEPENDENCIES
     "org.mauikit.controls")
 
-target_sources(MauiKitImageToolsEditor4
-  PRIVATE
-    commands/transformcommand.h commands/transformcommand.cpp
-)
-
 ecm_target_qml_sources(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION} SOURCES
     controls/ImageEditor.qml)
 
 
 ecm_target_qml_sources(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION} PATH private SOURCES
     controls/private/ColourBar.qml
-    controls/private/Ruler.qml
     controls/private/TransformationBar.qml
-
-    controls/BasicResizeHandle.qml
-    controls/SelectionTool.qml
-    controls/SelectionHandle.qml
-    controls/SelectionBackground.qml
-    controls/CropBackground.qml
-    controls/RectangleCutout.qml)
+)
 
 target_sources(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION}
     PRIVATE
@@ -38,7 +26,6 @@ target_sources(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION}
 
     commands/command.cpp
     commands/transformcommand.cpp
-    commands/cropcommand.cpp
     commands/mirrorcommand.cpp
     commands/resizecommand.cpp
     commands/rotatecommand.cpp)

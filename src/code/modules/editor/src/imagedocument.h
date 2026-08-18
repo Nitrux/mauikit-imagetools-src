@@ -115,16 +115,6 @@ public:
     Q_INVOKABLE void mirror(bool horizontal, bool vertical);
 
     /**
-     * Crop the image.
-     * @param x The x coordinate of the new image in the old image.
-     * @param y The y coordinate of the new image in the old image.
-     * @param width The width of the new image.
-     * @param height The height of the new image.
-     */
-    Q_INVOKABLE void crop
-        (int x, int y, int width, int height);
-
-    /**
      * Resize the image.
      * @param width The width of the new image.
      * @param height The height of the new image.

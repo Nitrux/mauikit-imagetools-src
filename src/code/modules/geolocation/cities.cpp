@@ -19,7 +19,6 @@ Cities::Cities(QObject * parent) : QObject(parent)
 
     connect(qApp, &QCoreApplication::aboutToQuit, [this]()
     {
-        qDebug() << "Lets remove Tagging singleton instance";
 
         qDeleteAll(m_dbs);
         m_dbs.clear();

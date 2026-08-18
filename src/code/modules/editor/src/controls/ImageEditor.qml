@@ -1,5 +1,6 @@
 import QtQuick 
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick.Layouts
 
 import org.mauikit.controls as Maui
@@ -16,6 +17,8 @@ import "private" as Private
 Maui.Page
 {
     id: control
+
+    floatingFooter: true
 
     Keys.enabled: true
     Keys.onPressed: (event) =>
@@ -70,8 +73,6 @@ Maui.Page
     readonly property alias editor : imageDoc
 
     property Item middleContentBar : _private.currentAction.bar
-    property int cropAspectRatio : 0
-    readonly property bool cropMode : _private.currentAction == transformAction && _transBar.cropMode
 
     signal saved()
     signal savedAs(string url)
@@ -142,58 +143,6 @@ Maui.Page
             control.saved()
     }
 
-    function setCropSelectionRect(x, y, width, height)
-    {
-        if (!cropSelection)
-            return
-
-        cropSelection.selectionX = x
-        cropSelection.selectionY = y
-        cropSelection.selectionWidth = Math.max(1, width)
-        cropSelection.selectionHeight = Math.max(1, height)
-    }
-
-    function resetCropSelection()
-    {
-        if (!cropFrame || cropFrame.width <= 0 || cropFrame.height <= 0)
-            return
-
-        if (control.cropAspectRatio === 1)
-        {
-            const side = Math.min(cropFrame.width, cropFrame.height)
-            control.setCropSelectionRect((cropFrame.width - side) / 2, (cropFrame.height - side) / 2, side, side)
-            return
-        }
-
-        control.setCropSelectionRect(0, 0, cropFrame.width, cropFrame.height)
-    }
-
-    function applyCropSelection()
-    {
-        if (!cropSelection || !cropSelection.selectionArea || !control.cropMode || cropFrame.width <= 0 || cropFrame.height <= 0 || editImage.nativeWidth <= 0 || editImage.nativeHeight <= 0)
-            return
-
-        const selectionRect = cropSelection.selectionArea
-        const cropX = Math.round((selectionRect.x / cropFrame.width) * editImage.nativeWidth)
-        const cropY = Math.round((selectionRect.y / cropFrame.height) * editImage.nativeHeight)
-        const cropWidth = Math.round((selectionRect.width / cropFrame.width) * editImage.nativeWidth)
-        const cropHeight = Math.round((selectionRect.height / cropFrame.height) * editImage.nativeHeight)
-
-        const normalizedX = Math.max(0, Math.min(editImage.nativeWidth - 1, cropX))
-        const normalizedY = Math.max(0, Math.min(editImage.nativeHeight - 1, cropY))
-        const normalizedWidth = Math.max(1, Math.min(editImage.nativeWidth - normalizedX, cropWidth))
-        const normalizedHeight = Math.max(1, Math.min(editImage.nativeHeight - normalizedY, cropHeight))
-
-        if (normalizedX === 0
-                && normalizedY === 0
-                && normalizedWidth === editImage.nativeWidth
-                && normalizedHeight === editImage.nativeHeight)
-            return
-
-        imageDoc.crop(normalizedX, normalizedY, normalizedWidth, normalizedHeight)
-        control.resetCropSelection()
-    }
-
     function discard()
     {
         if (imageDoc.edited)
@@ -202,18 +151,12 @@ Maui.Page
         control.canceled()
     }
 
-    onCropModeChanged:
-    {
-        if (cropMode)
-            control.resetCropSelection()
-    }
-
     readonly property Action transformAction : EditorAction
     {
         icon.name: "transform-rotate"
         text: i18nd("mauikitimagetools","Transform")
         checked: _private.currentAction == this
-        bar: _transBar.bar
+        bar: null
         onTriggered: _private.currentAction = this
     }
 
@@ -224,6 +167,7 @@ Maui.Page
         checked: _private.currentAction == this
         bar: effectBar
         onTriggered: {
+            _transformSideBarView.sideBar.close()
             _private.currentAction = this
         }
     }
@@ -287,7 +231,8 @@ Maui.Page
         }
     ]
 
-    footBar.middleContent: control.middleContentBar
+    footBar.middleContent: _private.currentAction == filterAction ? control.middleContentBar : []
+    footBar.rightContent: []
 
     headBar.rightContent: [
         ToolButton
@@ -369,12 +314,10 @@ Maui.Page
     ITE.ImageItem
     {
         id: editImage
-        readonly property real ratioX: editImage.paintedWidth / editImage.nativeWidth;
-        readonly property real ratioY: editImage.paintedHeight / editImage.nativeHeight;
-
         fillMode: Image.PreserveAspectFit
         image: imageDoc.image
         anchors.fill: parent
+        anchors.margins: Maui.Style.space.big
 
         rotation: _transBar.rotationSlider.value
 
@@ -384,16 +327,6 @@ Maui.Page
             path: control.url
         }
 
-    }
-
-    Connections
-    {
-        target: imageDoc
-
-        function onImageChanged()
-        {
-            control.resetCropSelection()
-        }
     }
 
     Canvas
@@ -429,71 +362,254 @@ Maui.Page
         }
     }
 
-    Item
+    Action
     {
-        id: cropFrame
-        visible: control.cropMode && editImage.paintedWidth > 0 && editImage.paintedHeight > 0
-        z: 2
-        anchors.centerIn: editImage
-        width: editImage.paintedWidth
-        height: editImage.paintedHeight
+        id: flipHorizontalAction
+        icon.name: "object-flip-horizontal"
+        text: i18nc("@action:button Mirror an image horizontally", "Flip")
+        onTriggered: imageDoc.mirror(true, false)
+    }
 
-        onWidthChanged:
-        {
-            if (control.cropMode)
-                control.resetCropSelection()
-        }
 
-        onHeightChanged:
-        {
-            if (control.cropMode)
-                control.resetCropSelection()
-        }
+    Action
+    {
+        id: rotateLeftAction
+        icon.name: "object-rotate-left"
+        text: i18nc(":button Rotate an image 90°", "Rotate 90°")
+        onTriggered: imageDoc.rotate(-90)
+    }
 
-        Private.CropBackground
+    Action
+    {
+        id: transformSectionAction
+        icon.name: "transform-rotate"
+        text: i18nd("mauikitimagetools", "Transform")
+        checkable: true
+        checked: _transformSideBarView.sideBar.visible
+        onTriggered:
         {
-            anchors.fill: parent
-            insideX: cropSelection.selectionArea.x
-            insideY: cropSelection.selectionArea.y
-            insideWidth: cropSelection.selectionArea.width
-            insideHeight: cropSelection.selectionArea.height
-        }
-
-        Private.SelectionBackground
-        {
-            z: 1
-            x: cropSelection.selectionArea.x
-            y: cropSelection.selectionArea.y
-            width: cropSelection.selectionArea.width
-            height: cropSelection.selectionArea.height
-        }
-
-        Private.SelectionTool
-        {
-            id: cropSelection
-            z: 2
-            anchors.fill: parent
-            aspectRatio: control.cropAspectRatio
+            if (_transformSideBarView.sideBar.visible)
+                _transformSideBarView.sideBar.close()
+            else
+                _transformSideBarView.sideBar.open()
         }
     }
 
-    // footBar.visible: false
-    footerColumn: [
+    footer: Item
+    {
+        id: _actionBarFooter
+        visible: _private.currentAction == transformAction && control.ready
+        width: parent ? parent.width : 0
+        implicitHeight: _actionPane.implicitHeight
+        height: implicitHeight
 
-        Private.TransformationBar
+        Pane
         {
-            id: _transBar
-            visible: _private.currentAction == transformAction && control.ready
-            width: parent ? parent.width : 0
-            cropAspectRatio: control.cropAspectRatio
-            onCropRequested: control.applyCropSelection()
-            onCropResetRequested: control.resetCropSelection()
-            onCropAspectRatioSelected: (aspectRatio) =>
-                                       {
-                                           control.cropAspectRatio = aspectRatio
-                                           control.resetCropSelection()
-                                       }
-        },
+            id: _actionPane
+            x: parent.width - width - Maui.Style.space.big
+            y: 0
+            padding: Maui.Style.space.medium
+            visible: _actionBarFooter.visible
+
+            ScaleAnimator on scale
+            {
+                from: 0
+                to: 1
+                duration: Maui.Style.units.longDuration
+                running: visible
+                easing.type: Easing.OutInQuad
+            }
+
+            OpacityAnimator on opacity
+            {
+                from: 0
+                to: 1
+                duration: Maui.Style.units.longDuration
+                running: visible
+            }
+
+            Maui.Theme.colorSet: Maui.Theme.Complementary
+            Maui.Theme.inherit: false
+
+            background: Rectangle
+            {
+                radius: Maui.Style.radiusV
+                color: Maui.Theme.alternateBackgroundColor
+                border.color: Maui.Theme.alternateBackgroundColor
+
+                layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
+                layer.effect: MultiEffect
+                {
+                    autoPaddingEnabled: true
+                    shadowEnabled: true
+                    shadowColor: "#000000"
+                }
+            }
+
+            contentItem: Row
+            {
+                spacing: Maui.Style.defaultSpacing
+
+                Item
+                {
+                    width: Maui.Style.space.big
+                    height: _actionsGrid.implicitHeight
+
+                    Row
+                    {
+                        anchors.centerIn: parent
+                        spacing: 3
+
+                        Repeater
+                        {
+                            model: 2
+
+                            Column
+                            {
+                                spacing: 3
+
+                                Repeater
+                                {
+                                    model: 4
+
+                                    Rectangle
+                                    {
+                                        width: 2
+                                        height: width
+                                        radius: width / 2
+                                        color: Maui.Theme.textColor
+                                        opacity: _dragHandleHandler.active ? 0.9 : 0.55
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    DragHandler
+                    {
+                        id: _dragHandleHandler
+                        target: _actionPane
+                        xAxis.maximum: _actionBarFooter.width - _actionPane.width
+                        xAxis.minimum: 0
+                        yAxis.enabled: false
+
+                        onActiveChanged:
+                        {
+                            if (!active)
+                            {
+                                const pos = centroid.velocity.x
+                                _actionPane.x = Qt.binding(() => { return pos < 0 ? Maui.Style.space.big : _actionBarFooter.width - _actionPane.width - Maui.Style.space.big })
+                            }
+                        }
+                    }
+
+                    HoverHandler
+                    {
+                        cursorShape: _dragHandleHandler.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    }
+                }
+
+                Grid
+                {
+                    id: _actionsGrid
+                    rows: 2
+                    columns: Math.ceil(_actionRepeater.count / 2)
+                    spacing: Maui.Style.space.tiny
+
+                    Repeater
+                    {
+                        id: _actionRepeater
+                        model: [flipHorizontalAction, rotateLeftAction, transformSectionAction]
+
+                        ToolButton
+                        {
+                            id: _actionButton
+                            readonly property bool destructive: modelData && modelData.Maui.Controls.status === Maui.Controls.Negative
+                            Maui.Theme.colorSet: Maui.Theme.Complementary
+                            Maui.Controls.status: modelData && modelData.Maui.Controls.status ? modelData.Maui.Controls.status : Maui.Controls.Normal
+
+                            action: modelData
+                            display: ToolButton.IconOnly
+                            flat: false
+                            icon.color: destructive ? "#fafafa" : color
+
+                            background: Rectangle
+                            {
+                                radius: Maui.Style.radiusV
+                                color: _actionButton.destructive
+                                    ? (_actionButton.pressed || _actionButton.down || _actionButton.checked
+                                       ? Qt.darker(Maui.Theme.negativeBackgroundColor, 1.12)
+                                       : (_actionButton.hovered
+                                          ? Qt.lighter(Maui.Theme.negativeBackgroundColor, 1.05)
+                                          : Maui.Theme.negativeBackgroundColor))
+                                    : (_actionButton.pressed || _actionButton.down || _actionButton.checked
+                                       ? Maui.Theme.highlightColor
+                                       : (_actionButton.highlighted || _actionButton.hovered
+                                          ? Maui.Theme.hoverColor
+                                          : Maui.Theme.backgroundColor))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Maui.SideBarView
+    {
+        id: _transformSideBarView
+        anchors.fill: parent
+        z: 10
+        background: null
+        visible: _private.currentAction === transformAction && control.ready
+
+        sideBar.preferredWidth: Math.min(width * 0.38, Maui.Style.units.gridUnit * 22)
+        sideBar.minimumWidth: Maui.Style.units.gridUnit * 14
+        sideBar.maximumWidth: Maui.Style.units.gridUnit * 22
+        sideBar.collapsed: true
+        sideBar.autoShow: false
+        sideBar.autoHide: true
+        sideBar.floats: true
+
+        sideBarContent: Maui.Page
+        {
+            anchors.fill: parent
+            anchors.margins: Maui.Style.contentMargins
+            clip: true
+            Maui.Theme.colorSet: Maui.Theme.Window
+            Maui.Theme.inherit: false
+
+            background: Rectangle
+            {
+                color: Maui.Theme.alternateBackgroundColor
+                radius: Maui.Style.radiusV
+                border.color: Maui.Theme.backgroundColor
+            }
+
+            headBar.leftContent: ToolButton
+            {
+                icon.name: "go-previous"
+                display: ToolButton.IconOnly
+                onClicked: _transformSideBarView.sideBar.close()
+            }
+
+            headBar.middleContent: Label
+            {
+                text: i18nd("mauikitimagetools", "Transform")
+                font.bold: true
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Private.TransformationBar
+            {
+                id: _transBar
+                anchors.fill: parent
+            }
+        }
+    }
+
+    footerColumn: [
 
         Private.ColourBar
         {
@@ -502,7 +618,6 @@ Maui.Page
             width: parent ? parent.width : 0
         }
     ]
-
 
     property Item effectBar :  Row
     {
