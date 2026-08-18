@@ -28,6 +28,7 @@ target_sources(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION}
     commands/transformcommand.cpp
     commands/mirrorcommand.cpp
     commands/resizecommand.cpp
+    commands/cropcommand.cpp
     commands/rotatecommand.cpp)
 
 # target_sources(MauiKitImageToolsEditor${MAUI_MAJOR_VERSION})plugin PRIVATE

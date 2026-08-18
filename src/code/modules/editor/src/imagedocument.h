@@ -120,6 +120,7 @@ public:
      * @param height The height of the new image.
      */
     Q_INVOKABLE void resize(int width, int height);
+    Q_INVOKABLE void crop(int x, int y, int width, int height);
 
     /**
      * Undo the last edit on the images.

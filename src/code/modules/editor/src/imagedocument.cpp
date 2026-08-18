@@ -8,6 +8,7 @@
 
 #include "commands/mirrorcommand.h"
 #include "commands/resizecommand.h"
+#include "commands/cropcommand.h"
 #include "commands/rotatecommand.h"
 #include "commands/transformcommand.h"
 #include <QImageReader>
@@ -232,6 +233,20 @@ void ImageDocument::redo()
 void ImageDocument::resize(int width, int height)
 {
     const auto command = new ResizeCommand(QSize(width, height));
+    m_image = command->redo(m_image);
+    pushCommand(command);
+    setEdited(true);
+    Q_EMIT imageChanged();
+}
+
+void ImageDocument::crop(int x, int y, int width, int height)
+{
+    const QRect area = QRect(x, y, width, height).intersected(m_image.rect());
+    if (area.isEmpty() || area == m_image.rect()) {
+        return;
+    }
+
+    const auto command = new CropCommand(area);
     m_image = command->redo(m_image);
     pushCommand(command);
     setEdited(true);

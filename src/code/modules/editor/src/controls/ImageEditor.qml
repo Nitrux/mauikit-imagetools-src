@@ -93,6 +93,20 @@ Maui.Page
     }
 
     property int initialActionType : ImageEditor.ActionType.Transform
+    property bool cropDebug: true
+    property real debugCursorX: -1
+    property real debugCursorY: -1
+    function applyCrop()
+    {
+        if (!imageContainer.width || !imageContainer.height || !imageDoc.image.width)
+            return
+
+        imageDoc.crop(Math.round(cropBox.x / imageContainer.width * imageDoc.image.width),
+                      Math.round(cropBox.y / imageContainer.height * imageDoc.image.height),
+                      Math.round(cropBox.width / imageContainer.width * imageDoc.image.width),
+                      Math.round(cropBox.height / imageContainer.height * imageDoc.image.height))
+        cropAction.checked = false
+    }
 
     QtObject
     {
@@ -231,7 +245,7 @@ Maui.Page
         }
     ]
 
-    footBar.middleContent: _private.currentAction == filterAction ? control.middleContentBar : []
+    footBar.middleContent: _private.currentAction == filterAction ? [control.middleContentBar, _colourBar] : []
     footBar.rightContent: []
 
     headBar.rightContent: [
@@ -327,6 +341,185 @@ Maui.Page
             path: control.url
         }
 
+
+        MouseArea
+        {
+            id: cropDebugMouseArea
+            anchors.fill: parent
+            z: 0
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+
+            onPositionChanged:
+            {
+                var point = mapToItem(imageContainer, mouseX, mouseY)
+                debugCursorX = point.x
+                debugCursorY = point.y
+                if (cropDebug)
+                    console.log("[CropDebug] hover cursor:", Math.round(debugCursorX), Math.round(debugCursorY),
+                                "frame:", Math.round(cropBox.x), Math.round(cropBox.y),
+                                Math.round(cropBox.width), Math.round(cropBox.height))
+            }
+
+            onExited:
+            {
+                debugCursorX = -1
+                debugCursorY = -1
+            }
+        }
+
+        Item
+    {
+        id: imageContainer
+        visible: cropAction.checked
+        z: 100
+        width: editImage.paintedWidth
+        height: editImage.paintedHeight
+        anchors.centerIn: editImage
+
+        Rectangle
+        {
+            id: cropBox
+            x: 0
+            y: 0
+            width: 200
+            height: 200
+            color: "#33000000"
+            border.color: "#26C6DA"
+            border.width: 2
+
+            MouseArea
+            {
+                anchors.fill: parent
+                preventStealing: true
+
+                property real startCropX
+                property real startCropY
+                property real startMouseX
+                property real startMouseY
+
+                onPressed:
+                {
+                    var point = mapToItem(imageContainer, mouseX, mouseY)
+                    startCropX = cropBox.x
+                    startCropY = cropBox.y
+                    startMouseX = point.x
+                    startMouseY = point.y
+                    if (cropDebug)
+                        console.log("[CropDebug] move start cursor:", Math.round(point.x), Math.round(point.y),
+                                    "frame:", Math.round(cropBox.x), Math.round(cropBox.y),
+                                    Math.round(cropBox.width), Math.round(cropBox.height))
+                }
+
+                onPositionChanged:
+                {
+                    if (pressed)
+                    {
+                        var point = mapToItem(imageContainer, mouseX, mouseY)
+                        cropBox.x = Math.max(0, Math.min(imageContainer.width - cropBox.width,
+                                                          startCropX + point.x - startMouseX))
+                        cropBox.y = Math.max(0, Math.min(imageContainer.height - cropBox.height,
+                                                          startCropY + point.y - startMouseY))
+                        if (cropDebug)
+                            console.log("[CropDebug] move cursor:", Math.round(point.x), Math.round(point.y),
+                                        "frame:", Math.round(cropBox.x), Math.round(cropBox.y),
+                                        Math.round(cropBox.width), Math.round(cropBox.height))
+                    }
+                }
+            }
+
+            Rectangle
+            {
+                width: 20
+                height: 20
+                color: "#26C6DA"
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+
+                MouseArea
+                {
+                    anchors.fill: parent
+                    preventStealing: true
+                    property real startMouseX
+                    property real startMouseY
+                    property real startWidth
+                    property real startHeight
+
+                    onPressed:
+                    {
+                        var point = mapToItem(imageContainer, mouseX, mouseY)
+                        startMouseX = point.x
+                        startMouseY = point.y
+                        startWidth = cropBox.width
+                        startHeight = cropBox.height
+                        if (cropDebug)
+                            console.log("[CropDebug] resize start cursor:", Math.round(point.x), Math.round(point.y),
+                                        "frame:", Math.round(cropBox.x), Math.round(cropBox.y),
+                                        Math.round(cropBox.width), Math.round(cropBox.height))
+                    }
+
+                    onPositionChanged:
+                    {
+                        if (pressed)
+                        {
+                            var point = mapToItem(imageContainer, mouseX, mouseY)
+                            let newW = Math.floor(startWidth + (point.x - startMouseX))
+                            let newH = Math.floor(startHeight + (point.y - startMouseY))
+
+                            if (cropBox.x + newW <= imageContainer.width)
+                            {
+                                cropBox.width = Math.max(30, newW)
+                            }
+
+                            if (cropBox.y + newH <= imageContainer.height)
+                            {
+                                cropBox.height = Math.max(30, newH)
+                            }
+                            if (cropDebug)
+                                console.log("[CropDebug] resize cursor:", Math.round(point.x), Math.round(point.y),
+                                            "frame:", Math.round(cropBox.x), Math.round(cropBox.y),
+                                            Math.round(cropBox.width), Math.round(cropBox.height))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    }
+
+    Action
+    {
+        id: cropAction
+        checkable: true
+        icon.name: "transform-crop"
+        text: i18nd("mauikitimagetools", "Crop")
+        onTriggered: if (checked) _transformSideBarView.sideBar.close()
+    }
+
+    Label
+    {
+        visible: cropDebug && cropAction.checked
+        z: 200
+        x: imageContainer.x
+        y: imageContainer.y - height - Maui.Style.space.small
+        text: "Frame: x=%1 y=%2 w=%3 h=%4\nCursor: x=%5 y=%6\nFrame-relative: x=%7 y=%8"
+              .arg(Math.round(cropBox.x))
+              .arg(Math.round(cropBox.y))
+              .arg(Math.round(cropBox.width))
+              .arg(Math.round(cropBox.height))
+              .arg(Math.round(debugCursorX))
+              .arg(Math.round(debugCursorY))
+              .arg(Math.round(debugCursorX - cropBox.x))
+              .arg(Math.round(debugCursorY - cropBox.y))
+        color: Maui.Theme.textColor
+        padding: Maui.Style.space.small
+        background: Rectangle
+        {
+            color: Maui.Theme.alternateBackgroundColor
+            radius: Maui.Style.radiusV
+            border.color: Maui.Theme.highlightColor
+        }
     }
 
     Canvas
@@ -382,6 +575,7 @@ Maui.Page
     Action
     {
         id: transformSectionAction
+        enabled: !cropAction.checked
         icon.name: "transform-rotate"
         text: i18nd("mauikitimagetools", "Transform")
         checkable: true
@@ -519,7 +713,7 @@ Maui.Page
                     Repeater
                     {
                         id: _actionRepeater
-                        model: [flipHorizontalAction, rotateLeftAction, transformSectionAction]
+                        model: [cropAction, flipHorizontalAction, rotateLeftAction, transformSectionAction]
 
                         ToolButton
                         {
@@ -559,7 +753,7 @@ Maui.Page
     {
         id: _transformSideBarView
         anchors.fill: parent
-        z: 10
+        z: cropAction.checked ? -1 : 10
         background: null
         visible: _private.currentAction === transformAction && control.ready
 
@@ -609,15 +803,12 @@ Maui.Page
         }
     }
 
-    footerColumn: [
-
-        Private.ColourBar
-        {
-            id: _colourBar
-            visible: _private.currentAction == filterAction && control.ready
-            width: parent ? parent.width : 0
-        }
-    ]
+    Private.ColourBar
+    {
+        id: _colourBar
+        visible: _private.currentAction == filterAction && control.ready
+        width: parent ? parent.width : 0
+    }
 
     property Item effectBar :  Row
     {
