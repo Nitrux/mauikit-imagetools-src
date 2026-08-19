@@ -741,7 +741,6 @@ Maui.Page
     Maui.SideBarView
     {
         id: _transformSideBarView
-        parent: control
         anchors.fill: parent
         z: cropAction.checked ? -1 : 10
         background: null
@@ -775,6 +774,7 @@ Maui.Page
             Private.TransformationBar
             {
                 id: _transBar
+                editor: imageDoc
                 anchors.fill: parent
             }
         }

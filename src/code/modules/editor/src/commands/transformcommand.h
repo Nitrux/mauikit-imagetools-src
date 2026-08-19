@@ -18,7 +18,7 @@ public:
 
 private:
     QImage m_image;
-    Transformation m_transform;
+    std::function<QImage(QImage &)> m_transform;
     std::function<void ()> m_cb;
 };
 

@@ -70,6 +70,9 @@ class ImageDocument : public QObject
     Q_PROPERTY(int vignette READ vignette NOTIFY vignetteChanged FINAL)
     Q_PROPERTY(int threshold READ threshold NOTIFY thresholdChanged FINAL)
     Q_PROPERTY(int gaussianBlur READ gaussianBlur NOTIFY gaussianBlurChanged FINAL)
+    Q_PROPERTY(int straighten READ straighten NOTIFY straightenChanged FINAL)
+    Q_PROPERTY(int horizontal READ horizontal NOTIFY horizontalChanged FINAL)
+    Q_PROPERTY(int vertical READ vertical NOTIFY verticalChanged FINAL)
     Q_PROPERTY(QRectF area READ area WRITE setArea NOTIFY areaChanged RESET resetArea)
 
 public:
@@ -197,6 +200,9 @@ public:
     int vignette() const;
     int threshold() const;
     int gaussianBlur() const;
+    int straighten() const;
+    int horizontal() const;
+    int vertical() const;
 
     QRectF area() const;
     void setArea(const QRectF &newArea);
@@ -233,6 +239,9 @@ Q_SIGNALS:
     void thresholdChanged();
     void changesAppliedChanged();
     void gaussianBlurChanged();
+    void straightenChanged();
+    void horizontalChanged();
+    void verticalChanged();
     void changesSavedChanged();
     void canUndoChanged();
     void canRedoChanged();
@@ -244,6 +253,7 @@ private:
     QStack<QImage> m_redoImages;
     QImage m_image;
     QImage m_originalImage;
+    QImage m_transformBaseImage;
     bool m_edited;
     int m_exposure = 0;
     int m_brilliance = 0;
@@ -264,6 +274,9 @@ private:
     int m_vignette = 0;
     int m_threshold = 0;
     int m_gaussianBlur = 0;
+    int m_straighten = 0;
+    int m_horizontal = 0;
+    int m_vertical = 0;
     QRectF m_area;
 
     void resetValues();
@@ -274,6 +287,7 @@ private:
     void tagAdjustmentState(Command *command, const QString &key, int oldValue, int newValue);
     void restoreCommandState(Command *command, bool redoState);
     void restoreAdjustmentValue(const QString &key, int value);
+    void restoreTransformValue(int mode, int value);
     bool m_changesApplied = true;
     bool m_changesSaved = true;
 };

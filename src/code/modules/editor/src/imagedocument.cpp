@@ -11,6 +11,7 @@
 #include "commands/cropcommand.h"
 #include "commands/rotatecommand.h"
 #include "commands/transformcommand.h"
+#include <QDebug>
 #include <QImageReader>
 #include <QtMath>
 
@@ -27,6 +28,7 @@ ImageDocument::ImageDocument(QObject *parent)
         clearRedoStack();
         m_image = QImage(url.isLocalFile() ? url.toLocalFile() : url.toString());
         m_originalImage = m_image;
+        m_transformBaseImage = m_image;
         m_edited = false;
         m_changesApplied = true;
         m_changesSaved = true;
@@ -96,6 +98,12 @@ void ImageDocument::tagAdjustmentState(Command *command, const QString &key, int
 
 void ImageDocument::restoreCommandState(Command *command, bool redoState)
 {
+    if (command->hasProperty(QStringLiteral("transformMode"))) {
+        const int mode = command->getPropertyValue(QStringLiteral("transformMode")).toInt();
+        const QString valueKey = redoState ? QStringLiteral("transformNewValue") : QStringLiteral("transformOldValue");
+        restoreTransformValue(mode, command->getPropertyValue(valueKey).toInt());
+    }
+
     if (!command->hasProperty(QStringLiteral("adjustmentKey"))) {
         return;
     }
@@ -158,6 +166,36 @@ void ImageDocument::restoreAdjustmentValue(const QString &key, int value)
     }
 }
 
+void ImageDocument::restoreTransformValue(int mode, int value)
+{
+    int *member = nullptr;
+    void (ImageDocument::*changedSignal)() = nullptr;
+
+    switch (mode) {
+    case 0:
+        member = &m_straighten;
+        changedSignal = &ImageDocument::straightenChanged;
+        break;
+    case 1:
+        member = &m_horizontal;
+        changedSignal = &ImageDocument::horizontalChanged;
+        break;
+    case 2:
+        member = &m_vertical;
+        changedSignal = &ImageDocument::verticalChanged;
+        break;
+    default:
+        return;
+    }
+
+    if (*member == value) {
+        return;
+    }
+
+    *member = value;
+    Q_EMIT (this->*changedSignal)();
+}
+
 void ImageDocument::cancel()
 {
     while (!m_undos.empty()) {
@@ -168,6 +206,7 @@ void ImageDocument::cancel()
     }
 
     clearRedoStack();
+    m_transformBaseImage = m_image;
     resetValues();
     setEdited(false);
     Q_EMIT imageChanged();
@@ -256,19 +295,81 @@ void ImageDocument::crop(int x, int y, int width, int height)
 
 void ImageDocument::transform(int mode, int angle)
 {
-    QTransform transform;
+    const int requestedAngle = angle;
+    const char *modeName = "Unknown";
+    int *transformValue = nullptr;
+    int targetStraighten = m_straighten;
+    int targetHorizontal = m_horizontal;
+    int targetVertical = m_vertical;
 
     switch (mode) {
     case 0:
-        transform.rotate(angle);
+        modeName = "Straighten";
+        transformValue = &targetStraighten;
         break;
     case 1:
-        transform.shear(qTan(qDegreesToRadians(static_cast<qreal>(angle))), 0);
+        modeName = "Horizontal";
+        transformValue = &targetHorizontal;
         break;
     case 2:
-        transform.shear(0, qTan(qDegreesToRadians(static_cast<qreal>(angle))));
+        modeName = "Vertical";
+        transformValue = &targetVertical;
         break;
     default:
+        qWarning() << "[ImageDocument::transform] rejected unknown mode:" << mode;
+        return;
+    }
+
+    qDebug() << "[ImageDocument::transform] request"
+             << "mode=" << modeName
+             << "(" << mode << ")"
+             << "angle=" << requestedAngle
+             << "current=" << (mode == 0 ? m_straighten : (mode == 1 ? m_horizontal : m_vertical))
+             << "image=" << m_image.size()
+             << "base=" << m_transformBaseImage.size()
+             << "allocationLimitMB=" << QImageReader::allocationLimit();
+
+    if (m_image.isNull() || m_transformBaseImage.isNull()) {
+        qWarning() << "[ImageDocument::transform] rejected null input or transform base image";
+        return;
+    }
+
+    angle = qBound(-45, angle, 45);
+    if (angle != requestedAngle) {
+        qWarning() << "[ImageDocument::transform] clamped angle from" << requestedAngle << "to" << angle;
+    }
+
+    const int oldValue = *transformValue;
+    *transformValue = angle;
+
+    QTransform transform;
+    transform.rotate(targetStraighten);
+    transform.shear(qTan(qDegreesToRadians(static_cast<qreal>(targetHorizontal))),
+                    qTan(qDegreesToRadians(static_cast<qreal>(targetVertical))));
+
+    const QRect transformedBounds = transform.mapRect(m_transformBaseImage.rect());
+    const qint64 transformedPixels = static_cast<qint64>(transformedBounds.width())
+        * static_cast<qint64>(transformedBounds.height());
+    constexpr qint64 maximumTransformPixels = 250000000;
+    qDebug() << "[ImageDocument::transform] target=" << targetStraighten
+             << targetHorizontal << targetVertical
+             << "bounds=" << transformedBounds
+             << "pixels=" << transformedPixels
+             << "matrix=" << transform;
+
+    if (transformedBounds.isEmpty()
+        || transformedBounds.width() > 32768
+        || transformedBounds.height() > 32768
+        || transformedPixels > maximumTransformPixels) {
+        qWarning() << "[ImageDocument::transform] rejected unsafe output bounds";
+        *transformValue = oldValue;
+        return;
+    }
+
+    const QImage transformSource = m_transformBaseImage.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if (transformSource.isNull()) {
+        qWarning() << "[ImageDocument::transform] failed to convert transform base to ARGB32 premultiplied";
+        *transformValue = oldValue;
         return;
     }
 
@@ -276,7 +377,26 @@ void ImageDocument::transform(int mode, int angle)
         return ref.transformed(transform, Qt::SmoothTransformation);
     });
 
-    m_image = command->redo(m_image);
+    const QImage transformedImage = targetStraighten == 0
+        && targetHorizontal == 0
+        && targetVertical == 0
+        ? transformSource
+        : command->redo(transformSource);
+
+    qDebug() << "[ImageDocument::transform] result=" << transformedImage.size()
+             << "isNull=" << transformedImage.isNull();
+    if (transformedImage.isNull()) {
+        qWarning() << "[ImageDocument::transform] transform returned a null image";
+        delete command;
+        *transformValue = oldValue;
+        return;
+    }
+
+    command->addProperty(QStringLiteral("transformMode"), mode);
+    command->addProperty(QStringLiteral("transformOldValue"), oldValue);
+    command->addProperty(QStringLiteral("transformNewValue"), angle);
+    m_image = transformedImage;
+    restoreTransformValue(mode, angle);
     pushCommand(command);
     setEdited(true);
     Q_EMIT imageChanged();
@@ -740,6 +860,7 @@ void ImageDocument::applyChanges()
     resetValues();
 
     m_originalImage = m_image;
+    m_transformBaseImage = m_image;
     m_changesApplied = true;
     Q_EMIT changesAppliedChanged();
 }
@@ -839,6 +960,21 @@ int ImageDocument::gaussianBlur() const
     return m_gaussianBlur;
 }
 
+int ImageDocument::straighten() const
+{
+    return m_straighten;
+}
+
+int ImageDocument::horizontal() const
+{
+    return m_horizontal;
+}
+
+int ImageDocument::vertical() const
+{
+    return m_vertical;
+}
+
 QUrl ImageDocument::path() const
 {
     return m_path;
@@ -889,6 +1025,9 @@ void ImageDocument::resetValues()
     m_vignette = 0;
     m_threshold = 0;
     m_gaussianBlur = 0;
+    m_straighten = 0;
+    m_horizontal = 0;
+    m_vertical = 0;
     Q_EMIT exposureChanged();
     Q_EMIT brillianceChanged();
     Q_EMIT highlightsChanged();
@@ -908,6 +1047,9 @@ void ImageDocument::resetValues()
     Q_EMIT noiseReductionChanged();
     Q_EMIT vignetteChanged();
     Q_EMIT gaussianBlurChanged();
+    Q_EMIT straightenChanged();
+    Q_EMIT horizontalChanged();
+    Q_EMIT verticalChanged();
 }
 
 bool ImageDocument::changesApplied() const
