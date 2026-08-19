@@ -12,6 +12,7 @@
 #include "commands/rotatecommand.h"
 #include "commands/transformcommand.h"
 #include <QImageReader>
+#include <QtMath>
 
 ImageDocument::ImageDocument(QObject *parent)
     : QObject(parent)
@@ -247,6 +248,34 @@ void ImageDocument::crop(int x, int y, int width, int height)
     }
 
     const auto command = new CropCommand(area);
+    m_image = command->redo(m_image);
+    pushCommand(command);
+    setEdited(true);
+    Q_EMIT imageChanged();
+}
+
+void ImageDocument::transform(int mode, int angle)
+{
+    QTransform transform;
+
+    switch (mode) {
+    case 0:
+        transform.rotate(angle);
+        break;
+    case 1:
+        transform.shear(qTan(qDegreesToRadians(static_cast<qreal>(angle))), 0);
+        break;
+    case 2:
+        transform.shear(0, qTan(qDegreesToRadians(static_cast<qreal>(angle))));
+        break;
+    default:
+        return;
+    }
+
+    const auto command = new TransformCommand(m_image, [transform](QImage &ref) {
+        return ref.transformed(transform, Qt::SmoothTransformation);
+    });
+
     m_image = command->redo(m_image);
     pushCommand(command);
     setEdited(true);

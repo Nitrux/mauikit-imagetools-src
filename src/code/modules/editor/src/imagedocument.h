@@ -106,6 +106,7 @@ public:
      * @param angle The angle of the rotation in degree.
      */
     Q_INVOKABLE void rotate(int angle);
+    Q_INVOKABLE void transform(int mode, int angle);
 
     /**
      * Mirror the image.

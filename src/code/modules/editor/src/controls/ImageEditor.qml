@@ -72,7 +72,7 @@ Maui.Page
     
     readonly property alias editor : imageDoc
 
-    property Item middleContentBar : _private.currentAction.bar
+    property Item middleContentBar : null
 
     signal saved()
     signal savedAs(string url)
@@ -98,13 +98,13 @@ Maui.Page
     property real debugCursorY: -1
     function applyCrop()
     {
-        if (!imageContainer.width || !imageContainer.height || !imageDoc.image.width)
+        if (!imageContainer.width || !imageContainer.height || !editImage.nativeWidth)
             return
 
-        imageDoc.crop(Math.round(cropBox.x / imageContainer.width * imageDoc.image.width),
-                      Math.round(cropBox.y / imageContainer.height * imageDoc.image.height),
-                      Math.round(cropBox.width / imageContainer.width * imageDoc.image.width),
-                      Math.round(cropBox.height / imageContainer.height * imageDoc.image.height))
+        imageDoc.crop(Math.round(cropBox.x / imageContainer.width * editImage.nativeWidth),
+                      Math.round(cropBox.y / imageContainer.height * editImage.nativeHeight),
+                      Math.round(cropBox.width / imageContainer.width * editImage.nativeWidth),
+                      Math.round(cropBox.height / imageContainer.height * editImage.nativeHeight))
         cropAction.checked = false
     }
 
@@ -179,7 +179,7 @@ Maui.Page
         icon.name: "edit-add-effect"
         text: i18nd("mauikitimagetools","Colors")
         checked: _private.currentAction == this
-        bar: effectBar
+        bar: null
         onTriggered: {
             _transformSideBarView.sideBar.close()
             _private.currentAction = this
@@ -225,27 +225,10 @@ Maui.Page
         {
             bottomPadding: 10
             topPadding: 10
-        },
-
-        RowLayout
-        {
-            spacing: Maui.Style.defaultSpacing
-
-            Repeater
-            {
-                model: [transformAction, filterAction]
-
-                ToolButton
-                {
-                    action: modelData
-                    display: ToolButton.IconOnly
-                    flat: false
-                }
-            }
         }
     ]
 
-    footBar.middleContent: _private.currentAction == filterAction ? [control.middleContentBar, _colourBar] : []
+    footBar.middleContent: []
     footBar.rightContent: []
 
     headBar.rightContent: [
@@ -333,7 +316,7 @@ Maui.Page
         anchors.fill: parent
         anchors.margins: Maui.Style.space.big
 
-        rotation: _transBar.rotationSlider.value
+        rotation: 0
 
         ITE.ImageDocument
         {
@@ -494,7 +477,13 @@ Maui.Page
         checkable: true
         icon.name: "transform-crop"
         text: i18nd("mauikitimagetools", "Crop")
-        onTriggered: if (checked) _transformSideBarView.sideBar.close()
+        onTriggered:
+        {
+            if (checked)
+                _transformSideBarView.sideBar.close()
+            else
+                applyCrop()
+        }
     }
 
     Label
@@ -576,8 +565,8 @@ Maui.Page
     {
         id: transformSectionAction
         enabled: !cropAction.checked
-        icon.name: "transform-rotate"
-        text: i18nd("mauikitimagetools", "Transform")
+        icon.name: "edit-advanced-effects"
+        text: i18nd("mauikitimagetools", "Advanced")
         checkable: true
         checked: _transformSideBarView.sideBar.visible
         onTriggered:
@@ -752,15 +741,16 @@ Maui.Page
     Maui.SideBarView
     {
         id: _transformSideBarView
+        parent: control
         anchors.fill: parent
         z: cropAction.checked ? -1 : 10
         background: null
         visible: _private.currentAction === transformAction && control.ready
 
-        sideBar.preferredWidth: Math.min(width * 0.38, Maui.Style.units.gridUnit * 22)
+        sideBar.preferredWidth: Math.min(width * (height > width ? 0.84 : 0.38), Maui.Style.units.gridUnit * 24)
         sideBar.minimumWidth: Maui.Style.units.gridUnit * 14
-        sideBar.maximumWidth: Maui.Style.units.gridUnit * 22
-        sideBar.collapsed: true
+        sideBar.maximumWidth: Maui.Style.units.gridUnit * 30
+        sideBar.collapsed: height > width || width < Maui.Style.units.gridUnit * 42 || height < width * 0.75
         sideBar.autoShow: false
         sideBar.autoHide: true
         sideBar.floats: true
@@ -780,20 +770,7 @@ Maui.Page
                 border.color: Maui.Theme.backgroundColor
             }
 
-            headBar.leftContent: ToolButton
-            {
-                icon.name: "go-previous"
-                display: ToolButton.IconOnly
-                onClicked: _transformSideBarView.sideBar.close()
-            }
-
-            headBar.middleContent: Label
-            {
-                text: i18nd("mauikitimagetools", "Transform")
-                font.bold: true
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-            }
+            headBar.visible: false
 
             Private.TransformationBar
             {
@@ -803,30 +780,4 @@ Maui.Page
         }
     }
 
-    Private.ColourBar
-    {
-        id: _colourBar
-        visible: _private.currentAction == filterAction && control.ready
-        width: parent ? parent.width : 0
-    }
-
-    property Item effectBar :  Row
-    {
-        Layout.alignment: Qt.AlignHCenter
-        spacing: Maui.Style.defaultSpacing
-
-        Button
-        {
-            highlighted: _colourBar.currentMode === "manual"
-            text: i18nd("mauikitimagetools", "Manual Color Adjustment")
-            onClicked: _colourBar.setMode("manual")
-        }
-
-        Button
-        {
-            highlighted: _colourBar.currentMode === "presets"
-            text: i18nd("mauikitimagetools", "Color Presets")
-            onClicked: _colourBar.setMode("presets")
-        }
-    }
 }
