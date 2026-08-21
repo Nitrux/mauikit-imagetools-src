@@ -195,7 +195,7 @@ static FMH::MODEL_LIST basicInfo(const QUrl &url)
 
 void PicInfoModel::parse()
 {
-    qDebug() << "Setting image medatata model info";
+    qDebug() << "Setting image metadata model info";
     Q_EMIT preListChanged();
     m_data.clear();
     m_data << basicInfo(m_url);
