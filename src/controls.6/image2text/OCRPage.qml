@@ -16,8 +16,13 @@ import org.kde.kquickimageeditor 1.0 as KQuickImageEditor
 
 Maui.Page
 {
+    /**
+     * @brief Displays an image and extracts text from the whole image or a
+     * selected region using optical character recognition.
+     */
     id: control
-    
+
+    /** The local path of the image to process. */
     property alias url : _ocr.filePath
     
     IT.OCR

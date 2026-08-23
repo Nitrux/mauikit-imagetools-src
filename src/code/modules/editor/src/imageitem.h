@@ -10,6 +10,13 @@
 #include <QImage>
 #include <QQuickPaintedItem>
 
+/**
+ * @brief Paints a QImage in a Qt Quick scene using a configurable fill mode.
+ *
+ * The item reports both the source image dimensions and the dimensions and
+ * padding of the painted image, which is useful for mapping item coordinates
+ * back to pixels in the source image.
+ */
 class ImageItem : public QQuickPaintedItem
 {
     Q_OBJECT
@@ -26,6 +33,7 @@ class ImageItem : public QQuickPaintedItem
     Q_PROPERTY(bool null READ isNull NOTIFY nullChanged)
 
 public:
+    /** Describes how the source image is fitted or repeated within the item. */
     enum FillMode {
         Stretch, // the image is scaled to fit
         PreserveAspectFit, // the image is scaled uniformly inside the bounds
@@ -38,23 +46,35 @@ public:
     explicit ImageItem(QQuickItem *parent = nullptr);
     ~ImageItem() override = default;
 
+    /** Sets the source image painted by this item. */
     void setImage(const QImage &image);
+    /** Returns the source image. */
     QImage image() const;
+    /** Clears the source image. */
     void resetImage();
 
+    /** Returns the source image width in pixels. */
     int nativeWidth() const;
+    /** Returns the source image height in pixels. */
     int nativeHeight() const;
 
+    /** Returns the width occupied by the painted image. */
     int paintedWidth() const;
+    /** Returns the height occupied by the painted image. */
     int paintedHeight() const;
+    /** Returns the vertical space outside the painted image. */
     int verticalPadding() const;
+    /** Returns the horizontal space outside the painted image. */
     int horizontalPadding() const;
 
+    /** Returns the mode used to fit or repeat the image. */
     FillMode fillMode() const;
+    /** Sets the mode used to fit or repeat the image. */
     void setFillMode(FillMode mode);
 
     void paint(QPainter *painter) override;
 
+    /** Returns whether no source image is set. */
     bool isNull() const;
 
 Q_SIGNALS:

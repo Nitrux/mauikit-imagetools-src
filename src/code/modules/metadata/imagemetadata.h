@@ -5,7 +5,10 @@
 #pragma once
 #include <QObject>
 /**
- * @todo write docs
+ * @brief Provides the base object for exposing image metadata.
+ *
+ * This class currently defines no metadata properties. It is retained as the
+ * metadata module extension point.
  */
 class ImageMetadata : public QObject
 {
