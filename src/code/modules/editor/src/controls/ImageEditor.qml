@@ -486,31 +486,6 @@ Maui.Page
         }
     }
 
-    Label
-    {
-        visible: cropDebug && cropAction.checked
-        z: 200
-        x: imageContainer.x
-        y: imageContainer.y - height - Maui.Style.space.small
-        text: "Frame: x=%1 y=%2 w=%3 h=%4\nCursor: x=%5 y=%6\nFrame-relative: x=%7 y=%8"
-              .arg(Math.round(cropBox.x))
-              .arg(Math.round(cropBox.y))
-              .arg(Math.round(cropBox.width))
-              .arg(Math.round(cropBox.height))
-              .arg(Math.round(debugCursorX))
-              .arg(Math.round(debugCursorY))
-              .arg(Math.round(debugCursorX - cropBox.x))
-              .arg(Math.round(debugCursorY - cropBox.y))
-        color: Maui.Theme.textColor
-        padding: Maui.Style.space.small
-        background: Rectangle
-        {
-            color: Maui.Theme.alternateBackgroundColor
-            radius: Maui.Style.radiusV
-            border.color: Maui.Theme.highlightColor
-        }
-    }
-
     Canvas
     {
         visible: transformAction.checked
