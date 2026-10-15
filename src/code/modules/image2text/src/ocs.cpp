@@ -175,12 +175,8 @@ QVector<int> OCS::wordBoxesAt(const QRect &rect)
 QVector<int> OCS::allWordBoxes()
 {
     QVector<int> res;
-    int i = 0;
-    for(const auto &box : m_wordBoxes)
-    {
-        res << i;
-        i++;
-    }
+    for(qsizetype index = 0; index < m_wordBoxes.size(); ++index)
+        res << static_cast<int>(index);
 
     return res;
 }
@@ -342,7 +338,7 @@ void OCS::getTextAsync()
                     {
                         bool bold, italic, underlined, monospace, serif, smallcaps = false;
                         int pointsize, fontid;
-                        auto prop = ri->WordFontAttributes(&bold, &italic, &underlined, &monospace, &serif, &smallcaps, &pointsize, &fontid);
+                        ri->WordFontAttributes(&bold, &italic, &underlined, &monospace, &serif, &smallcaps, &pointsize, &fontid);
                         res << QVariantMap{{"text", QString::fromStdString(word)},
                                            {"rect", QRect{x1, y1, x2-x1, y2-y1}},
                                            {"bold", bold}, {"italic", italic},

@@ -12,7 +12,7 @@
 #include <QUrl>
 #include <QColor>
 #include <functional>
-#include <qqmlregistration.h>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 #include "commands/command.h"
 

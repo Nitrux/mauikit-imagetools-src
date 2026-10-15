@@ -23,9 +23,9 @@ void ImageToolsPlugin::registerTypes(const char *uri)
     qmlRegisterType(componentUrl(QStringLiteral("ImageViewer.qml")), uri, 1, 0, "ImageViewer");
 
 #ifdef Q_OS_ANDROID
-    qmlRegisterType(componentUrl(QStringLiteral("android/ImageEditor.qml")), uri, 1, 0, "ImageEditor");
+    qmlRegisterType(componentUrl(QStringLiteral("editor/ImageEditor.qml")), uri, 1, 0, "ImageEditor");
 #else
-    qmlRegisterType(componentUrl(QStringLiteral("linux/ImageEditor.qml")), uri, 1, 0, "ImageEditor");
+    qmlRegisterType(componentUrl(QStringLiteral("editor/ImageEditor.qml")), uri, 1, 0, "ImageEditor");
 #endif
 
     qmlRegisterType<PicInfoModel>(uri, 1, 3, "PicInfoModel");

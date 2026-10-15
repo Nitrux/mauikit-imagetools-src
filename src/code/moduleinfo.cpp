@@ -1,5 +1,5 @@
 #include "moduleinfo.h"
-#include "../imagetools_version.h"
+#include "imagetools_version.h"
 #include <KLocalizedString>
 #include <KExiv2Qt6/KExiv2/KExiv2>
 

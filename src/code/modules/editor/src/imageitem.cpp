@@ -185,5 +185,3 @@ void ImageItem::geometryChange(const QRectF &newGeometry, const QRectF &oldGeome
     QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
     updatePaintedRect();
 }
-
-#include "moc_imageitem.cpp"

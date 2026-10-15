@@ -5,7 +5,9 @@
 #include <QRect>
 #include <QVariantMap>
 #include "image2text_export.h"
-#include <QQmlParserStatus>
+#include <QtQmlIntegration/qqmlintegration.h>
+#include <QtQml>
+#include <QtQml/qqmlparserstatus.h>
 
 namespace tesseract
 {

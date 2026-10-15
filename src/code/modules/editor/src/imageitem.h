@@ -9,6 +9,7 @@
 
 #include <QImage>
 #include <QQuickPaintedItem>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 /**
  * @brief Paints a QImage in a Qt Quick scene using a configurable fill mode.
