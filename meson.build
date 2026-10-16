@@ -41,6 +41,7 @@ install_data(configure_file(
     input: 'meson-content.in',
     output: 'qmldir',
     configuration: {'CONTENT': ('''module org.mauikit.imagetools 1.0
+depends org.mauikit.controls
 plugin MauiKitImageTools4plugin
 ''')}
 ), install_dir: qml_dir)
@@ -77,6 +78,7 @@ install_data(configure_file(
     input: 'meson-content.in',
     output: 'editor_qmldir',
     configuration: {'CONTENT': ('''module org.mauikit.imagetools.editor 1.0
+depends org.mauikit.controls
 plugin MauiKitImageToolsEditor4
 ''')}
 ), install_dir: editor_qml_dir, rename: 'qmldir')
@@ -84,7 +86,7 @@ install_subdir('src/code/modules/editor/src/controls', install_dir: editor_qml_d
 install_data('src/data/cities.db', install_dir: get_option('datadir') / 'org/mauikit/imagetools')
 install_headers(files('src/code/exiv2extractor.h', 'src/code/geolocation/city.h', 'src/code/geolocation/cities.h', 'src/code/moduleinfo.h', 'src/code/textscanner.h') + [export_header], subdir: 'MauiKit4/ImageTools')
 pkg = import('pkgconfig')
-pkg.generate(lib, name: 'MauiKit Image Tools 4', filebase: 'MauiKitImageTools4', version: meson.project_version(), description: 'MauiKit image tools library', requires: 'MauiKit4')
+pkg.generate(lib, name: 'MauiKit Image Tools 4', filebase: 'MauiKitImageTools4', version: meson.project_version(), description: 'MauiKit image tools library', requires: 'MauiKit4 KExiv2Qt6 Qt6Concurrent Qt6Core Qt6Gui Qt6Positioning Qt6Qml Qt6Quick Qt6Sql KF6CoreAddons KF6I18n opencv4 tesseract lept')
 
 cmake_targets = configure_file(
     input: 'meson-content.in',
@@ -94,7 +96,8 @@ if(NOT TARGET MauiKitImageTools4)
   add_library(MauiKitImageTools4 SHARED IMPORTED)
   set_target_properties(MauiKitImageTools4 PROPERTIES
     IMPORTED_LOCATION "${_MAUIKIT_PREFIX}/@LIBDIR@/libMauiKitImageTools4.so.4.0.5"
-    INTERFACE_INCLUDE_DIRECTORIES "${_MAUIKIT_PREFIX}/include/MauiKit4/ImageTools")
+    INTERFACE_INCLUDE_DIRECTORIES "${_MAUIKIT_PREFIX}/include/MauiKit4/ImageTools"
+    INTERFACE_LINK_LIBRARIES "KExiv2Qt6;KF6::CoreAddons;KF6::I18n;MauiKit4;Qt6::Concurrent;Qt6::Core;Qt6::Gui;Qt6::Positioning;Qt6::Qml;Qt6::Quick;Qt6::Sql")
 endif()
 if(NOT TARGET MauiKit4::ImageTools)
   add_library(MauiKit4::ImageTools ALIAS MauiKitImageTools4)
@@ -108,7 +111,10 @@ cmake_config = configure_file(
     input: 'meson-content.in',
     output: 'MauiKitImageTools4Config.cmake',
     configuration: {'CONTENT': ('''include(CMakeFindDependencyMacro)
-find_dependency(Qt6 6.4 COMPONENTS Core)
+find_dependency(Qt6 6.4 COMPONENTS Concurrent Core Gui Positioning Qml Quick Sql)
+find_dependency(KF6 6.13.0 COMPONENTS CoreAddons I18n)
+find_dependency(KExiv2Qt6)
+find_dependency(MauiKit4 4.0.5 CONFIG)
 include("${CMAKE_CURRENT_LIST_DIR}/MauiKitImageTools4Targets.cmake")
 set(MauiKitImageTools4_FOUND TRUE)
 ''')}
@@ -126,3 +132,20 @@ endif()
 ''')).replace('@VERSION@', (meson.project_version()))}
 )
 install_data([cmake_targets, cmake_config, cmake_version], install_dir: get_option('libdir') / 'cmake' / 'MauiKitImageTools4')
+
+translation_domain = 'mauikitimagetools'
+msgfmt = find_program('msgfmt')
+po_files = run_command('find', 'po', '-mindepth', '2', '-maxdepth', '2', '-type', 'f', '-name', translation_domain + '.po', check: true).stdout().strip().split('\n')
+foreach po_file : po_files
+    if po_file != ''
+        locale = po_file.split('/')[1]
+        custom_target(
+            'translation-' + locale,
+            input: po_file,
+            output: locale / (translation_domain + '.mo'),
+            command: [msgfmt, '--check', '-o', '@OUTPUT@', '@INPUT@'],
+            install: true,
+            install_dir: get_option('localedir') / locale / 'LC_MESSAGES',
+            install_tag: 'i18n')
+    endif
+endforeach
