@@ -86,7 +86,7 @@ install_subdir('src/code/modules/editor/src/controls', install_dir: editor_qml_d
 install_data('src/data/cities.db', install_dir: get_option('datadir') / 'org/mauikit/imagetools')
 install_headers(files('src/code/exiv2extractor.h', 'src/code/geolocation/city.h', 'src/code/geolocation/cities.h', 'src/code/moduleinfo.h', 'src/code/textscanner.h') + [export_header], subdir: 'MauiKit4/ImageTools')
 pkg = import('pkgconfig')
-pkg.generate(lib, name: 'MauiKit Image Tools 4', filebase: 'MauiKitImageTools4', version: meson.project_version(), description: 'MauiKit image tools library', requires: 'MauiKit4 KExiv2Qt6 Qt6Concurrent Qt6Core Qt6Gui Qt6Positioning Qt6Qml Qt6Quick Qt6Sql KF6CoreAddons KF6I18n opencv4 tesseract lept')
+pkg.generate(lib, name: 'MauiKit Image Tools 4', filebase: 'MauiKitImageTools4', version: meson.project_version(), description: 'MauiKit image tools library', requires: 'MauiKit4 Qt6Concurrent Qt6Core Qt6Gui Qt6Positioning Qt6Qml Qt6Quick Qt6Sql opencv4 tesseract lept')
 
 cmake_targets = configure_file(
     input: 'meson-content.in',
