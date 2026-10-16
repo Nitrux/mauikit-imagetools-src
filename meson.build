@@ -67,6 +67,8 @@ public:
         qmlRegisterType<ImageItem>("org.mauikit.imagetools.editor", 1, 0, "ImageItem");
     }
 };
+
+#include "imagetools_editor_plugin.moc"
 ''')}
 )
 editor_plugin_moc = qt6.preprocess(moc_extra_arguments: qt_moc_args, moc_sources: [editor_plugin_source])
