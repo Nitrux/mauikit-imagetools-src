@@ -39,8 +39,8 @@ Maui.PopupPage
      */
     property alias url : _infoModel.url
 
-    maxHeight: 800
-    maxWidth: 500
+    maxHeight: Maui.Style.units.gridUnit * 50
+    maxWidth: Maui.Style.units.gridUnit * 31
     hint: 1
 
     page.title: _infoModel.fileName
@@ -159,9 +159,10 @@ Maui.PopupPage
         title: i18n ("Remove")
         message: i18nd("mauikitimagetools","Are you sure you want to remove the Exif tag %1?", _removeTagDialog.value)
 
-        standardButtons: Dialog.Yes | Dialog.Cancel
+        standardButtons: Dialog.Discard | Dialog.Cancel
+        Component.onCompleted: standardButton(Dialog.Discard).text = i18n("Remove")
 
-        onAccepted:
+        onDiscarded:
         {
             if(_infoModel.removeTag(_removeTagDialog.key))
             {
