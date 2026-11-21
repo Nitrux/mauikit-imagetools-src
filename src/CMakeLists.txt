@@ -134,3 +134,19 @@ install(FILES
     COMPONENT Devel)
 
 install(FILES data/cities.db DESTINATION ${KDE_INSTALL_DATADIR}/org/mauikit/imagetools)
+
+target_precompile_headers(MauiKitImageTools${MAUI_MAJOR_VERSION} PRIVATE
+    <QDebug>
+    <QFileInfo>
+    <QGuiApplication>
+    <QQmlEngine>
+    <QQuickWindow>
+)
+
+target_precompile_headers(MauiKitImageTools${MAUI_MAJOR_VERSION}plugin PRIVATE
+    <QDebug>
+    <QFileInfo>
+    <QGuiApplication>
+    <QQmlEngine>
+    <QQuickWindow>
+)
