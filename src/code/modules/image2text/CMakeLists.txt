@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 project(Image2Text VERSION 1.0.0 LANGUAGES CXX)
 
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Install path prefix" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
